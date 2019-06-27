@@ -1,0 +1,23 @@
+{
+    "name": "strack/framework",
+    "description": "strack底层框架，基于tp3.2.3",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Weijer",
+            "email": "weiwei163@foxmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {},
+    "autoload": {
+        "files": [],
+        "psr-4": {
+            "Think\\": "Library/Think/",
+            "Behavior\\": "Library/Behavior/",
+            "Org\\Net\\" : "Library/Org/Net/",
+            "Org\\Util\\" : "Library/Org/Util/"
+        }
+    }
+}
