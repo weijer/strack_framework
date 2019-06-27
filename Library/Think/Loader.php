@@ -13,6 +13,15 @@ namespace Think;
 
 use Think\Exception\ClassNotFoundException;
 
+// 版本信息（Strack定制版本）
+const THINK_VERSION = '6.6.6';
+
+// URL 模式定义
+const URL_COMMON = 0; //普通模式
+const URL_PATHINFO = 1; //PATHINFO模式
+const URL_REWRITE = 2; //REWRITE模式
+const URL_COMPAT = 3; // 兼容模式
+
 class Loader
 {
     protected static $_instance = [];
@@ -382,6 +391,31 @@ class Loader
      */
     public static function loadConstant()
     {
+        // 记录开始运行时间
+        $GLOBALS['_beginTime'] = microtime(true);
+
+        // 记录内存初始使用
+        defined('MEMORY_LIMIT_ON') or define('MEMORY_LIMIT_ON',   function_exists('memory_get_usage'));
+        if (MEMORY_LIMIT_ON) {
+            $GLOBALS['_startUseMems'] = memory_get_usage();
+        }
+
+        // 系统常量定义
+        defined('ROOT_PATH') or define('ROOT_PATH', dirname(realpath(APP_PATH)) . DS);
+        defined('APP_STATUS') or define('APP_STATUS', ''); // 应用状态 加载对应的配置文件
+        defined('APP_MODE') or define('APP_MODE', 'common'); // 应用模式 默认为普通模式
+        defined('STORAGE_TYPE') or define('STORAGE_TYPE', 'File'); // 存储类型 默认为File
+        defined('COMMON_PATH') or define('COMMON_PATH', APP_PATH . 'Common' . DS); // 应用公共目录
+        defined('CONF_PATH') or define('CONF_PATH', COMMON_PATH . 'Conf' . DS); // 应用配置目录
+        defined('EXTEND_PATH') or define('EXTEND_PATH', ROOT_PATH . 'extend' . DS);
+        defined('COMMON_VENDOR_PATH') or define('COMMON_VENDOR_PATH', ROOT_PATH . 'vendor' . DS);
+        defined('LANG_PATH') or define('LANG_PATH', COMMON_PATH . 'Lang' . DS); // 应用语言目录
+        defined('HTML_PATH') or define('HTML_PATH', APP_PATH . 'Html' . DS); // 应用静态目录
+        defined('LOG_PATH') or define('LOG_PATH', RUNTIME_PATH . 'Logs' . DS); // 应用日志目录
+        defined('TEMP_PATH') or define('TEMP_PATH', RUNTIME_PATH . 'Temp' . DS); // 应用缓存目录
+        defined('DATA_PATH') or define('DATA_PATH', RUNTIME_PATH . 'Data' . DS); // 应用数据目录
+        defined('CACHE_PATH') or define('CACHE_PATH', RUNTIME_PATH . 'Cache' . DS); // 应用模板缓存目录
+
         // 环境常量
         defined('THINK_PATH') or define('THINK_PATH', __DIR__.'/../../');
         defined('LIB_PATH') or define('LIB_PATH', realpath(THINK_PATH . 'Library') . DS); // 系统核心类库目录
