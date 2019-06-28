@@ -17,6 +17,9 @@
  */
 
 return array(
+    /* 框架版本号 */
+    'THINK_VERSION'          => '6.6.6',
+    
     /* 应用设定 */
     'APP_NAMESPACE'          => 'App',
     'APP_USE_NAMESPACE'      => true, // 应用类库是否使用命名空间

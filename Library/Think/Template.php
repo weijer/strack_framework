@@ -716,7 +716,7 @@ class Template
                     $parseStr = "date('Y-m-d g:i a',time())";
                     break;
                 case 'VERSION':
-                    $parseStr = 'THINK_VERSION';
+                    $parseStr = 'C("THINK_VERSION")';
                     break;
                 case 'TEMPLATE':
                     $parseStr = "'" . $this->templateFile . "'"; //'C("TEMPLATE_NAME")';

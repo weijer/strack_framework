@@ -41,7 +41,7 @@ class BorisBehavior
             $config->apply($boris, true);
             $options = new \Boris\CLIOptionsHandler();
             $options->handle($boris);
-            $boris->onStart(sprintf("echo 'REPL MODE FOR THINKPHP \nTHINKPHP_VERSION: %s, PHP_VERSION: %s, BORIS_VERSION: %s\n';", THINK_VERSION, PHP_VERSION, $boris::VERSION));
+            $boris->onStart(sprintf("echo 'REPL MODE FOR THINKPHP \nTHINKPHP_VERSION: %s, PHP_VERSION: %s, BORIS_VERSION: %s\n';", PHP_VERSION, $boris::VERSION));
             $boris->start();
         }
     }

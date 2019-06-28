@@ -16,6 +16,11 @@ namespace Think;
  */
 class Dispatcher
 {
+    // URL 模式定义
+    const URL_COMMON = 0; //普通模式
+    const URL_PATHINFO = 1; //PATHINFO模式
+    const URL_REWRITE = 2; //REWRITE模式
+    const URL_COMPAT = 3; // 兼容模式
 
     /**
      * URL映射到控制器
@@ -215,10 +220,10 @@ class Dispatcher
 
         if (!defined('__APP__')) {
             $urlMode = C('URL_MODEL');
-            if (URL_COMPAT == $urlMode) {
+            if (self::URL_COMPAT == $urlMode) {
                 // 兼容模式判断
                 define('PHP_FILE', _PHP_FILE_ . '?' . $varPath . '=');
-            } elseif (URL_REWRITE == $urlMode) {
+            } elseif (self::URL_REWRITE == $urlMode) {
                 $url = dirname(_PHP_FILE_);
                 if ('/' == $url || '\\' == $url) {
                     $url = '';

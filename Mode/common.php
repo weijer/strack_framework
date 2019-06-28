@@ -19,6 +19,12 @@ return array(
         CONF_PATH . 'config' . CONF_EXT, // 应用公共配置
     ),
 
+    // 公共函数
+    'function' => [
+        THINK_PATH . 'Common/functions.php',
+        COMMON_PATH . 'Common/functions.php',
+    ],
+
     // 别名定义
     'alias'  => array(
         'Think\Log'               => CORE_PATH . 'Log' . EXT,
@@ -34,8 +40,6 @@ return array(
 
     // 函数和类文件
     'core'   => array(
-        THINK_PATH . 'Common/functions.php',
-        COMMON_PATH . 'Common/function.php',
         CORE_PATH . 'Hook' . EXT,
         CORE_PATH . 'App' . EXT,
         CORE_PATH . 'Dispatcher' . EXT,
@@ -71,7 +75,7 @@ return array(
         'message' => array(
             'Behavior\MessageBehavior', // 处理消息
         ),
-        //        'view_filter'     => array(
+//        'view_filter' => array(
 //            'Behavior\WriteHtmlCacheBehavior', // 写入静态缓存
 //        ),
 //        'view_parse'      => array(

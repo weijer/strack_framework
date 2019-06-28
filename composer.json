@@ -12,7 +12,10 @@
     "minimum-stability": "dev",
     "require": {},
     "autoload": {
-        "files": [],
+        "files": [
+            "helper.php",
+            "app/helper.php"
+        ],
         "psr-4": {
             "Think\\": "Library/Think/",
             "Behavior\\": "Library/Behavior/",
