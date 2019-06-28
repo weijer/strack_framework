@@ -1930,12 +1930,12 @@ class Model
      * @param mixed $parse 是否需要解析SQL
      * @return mixed
      */
-    public function query($sql, $parse = false)
+    public function query($sql, ...$parse)
     {
-        if (!is_bool($parse) && !is_array($parse)) {
-            $parse = func_get_args();
-            array_shift($parse);
-        }
+//        if (!is_bool($parse) && !is_array($parse)) {
+//            $parse = func_get_args();
+//            array_shift($parse);
+//        }
         $sql = $this->parseSql($sql, $parse);
         return $this->db->query($sql);
     }
@@ -1947,12 +1947,12 @@ class Model
      * @param mixed $parse 是否需要解析SQL
      * @return false | integer
      */
-    public function execute($sql, $parse = false)
+    public function execute($sql, ...$parse)
     {
-        if (!is_bool($parse) && !is_array($parse)) {
-            $parse = func_get_args();
-            array_shift($parse);
-        }
+//        if (!is_bool($parse) && !is_array($parse)) {
+//            $parse = func_get_args();
+//            array_shift($parse);
+//        }
         $sql = $this->parseSql($sql, $parse);
         return $this->db->execute($sql);
     }
@@ -2430,13 +2430,13 @@ class Model
      * @param mixed $parse 预处理参数
      * @return Model
      */
-    public function where($where, $parse = null)
+    public function where($where, ...$parse)
     {
         if (!is_null($parse) && is_string($where)) {
-            if (!is_array($parse)) {
-                $parse = func_get_args();
-                array_shift($parse);
-            }
+//            if (!is_array($parse)) {
+//                $parse = func_get_args();
+//                array_shift($parse);
+//            }
             $parse = array_map(array($this->db, 'escapeString'), $parse);
             $where = vsprintf($where, $parse);
         } elseif (is_object($where)) {
@@ -2514,24 +2514,24 @@ class Model
 
     /**
      * 参数绑定
-     * @access public
-     * @param string $key 参数名
-     * @param mixed $value 绑定的变量及绑定参数
-     * @return Model
+     * @param $key
+     * @param mixed ...$params
+     * @return $this
      */
-    public function bind($key, $value = false)
+    public function bind($key, ...$params)
     {
         if (is_array($key)) {
             $this->options['bind'] = $key;
         } else {
-            $num = func_num_args();
-            if ($num > 2) {
-                $params = func_get_args();
-                array_shift($params);
-                $this->options['bind'][$key] = $params;
-            } else {
-                $this->options['bind'][$key] = $value;
-            }
+//            $num = func_num_args();
+//            if ($num > 2) {
+//                $params = func_get_args();
+//                array_shift($params);
+//                $this->options['bind'][$key] = $params;
+//            } else {
+//                $this->options['bind'][$key] = $value;
+//            }
+            $this->options['bind'][$key] = $params;
         }
         return $this;
     }
