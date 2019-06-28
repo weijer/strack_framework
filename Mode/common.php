@@ -26,24 +26,24 @@ return array(
     ],
 
     // 别名定义
-    'alias'  => array(
-        'Think\Log'               => CORE_PATH . 'Log' . EXT,
-        'Think\Log\Driver\File'   => CORE_PATH . 'Log/Driver/File' . EXT,
-        'Think\Exception'         => CORE_PATH . 'Exception' . EXT,
-        'Think\Model'             => CORE_PATH . 'Model' . EXT,
-        'Think\Db'                => CORE_PATH . 'Db' . EXT,
+    'alias' => array(
+        'Think\Log' => CORE_PATH . 'Log' . EXT,
+        'Think\Log\Driver\File' => CORE_PATH . 'Log/Driver/File' . EXT,
+        'Think\Exception' => CORE_PATH . 'Exception' . EXT,
+        'Think\Model' => CORE_PATH . 'Model' . EXT,
+        'Think\Db' => CORE_PATH . 'Db' . EXT,
         // 'Think\Template'          => CORE_PATH . 'Template' . EXT,
-        'Think\Cache'             => CORE_PATH . 'Cache' . EXT,
+        'Think\Cache' => CORE_PATH . 'Cache' . EXT,
         'Think\Cache\Driver\File' => CORE_PATH . 'Cache/Driver/File' . EXT,
-        'Think\Storage'           => CORE_PATH . 'Storage' . EXT,
+        'Think\Storage' => CORE_PATH . 'Storage' . EXT,
     ),
 
     // 函数和类文件
-    'core'   => array(
+    'core' => array(
         CORE_PATH . 'Hook' . EXT,
         CORE_PATH . 'App' . EXT,
         CORE_PATH . 'Dispatcher' . EXT,
-        CORE_PATH . 'Log'.EXT,
+        CORE_PATH . 'Log' . EXT,
         CORE_PATH . 'Route' . EXT,
         CORE_PATH . 'Controller' . EXT,
         CORE_PATH . 'Request' . EXT,
@@ -55,19 +55,12 @@ return array(
     ),
 
     // 行为扩展定义
-    'tags'   => array(
-        'app_init'        => array(
+    'tags' => array(
+        'app_init' => array(
             'Behavior\BuildLiteBehavior', // 生成运行Lite文件
         ),
-        'app_begin'       => array(
-            'Behavior\ReadHtmlCacheBehavior', // 读取静态缓存
-        ),
-        'app_end'         => array(
+        'app_end' => array(
             'Behavior\ShowPageTraceBehavior', // 页面Trace显示
-        ),
-
-        'template_filter' => array(
-            'Behavior\ContentReplaceBehavior', // 模板输出替换
         ),
         'event_log' => array(
             'Behavior\EventBehavior', // 写入EventLog
@@ -75,6 +68,12 @@ return array(
         'message' => array(
             'Behavior\MessageBehavior', // 处理消息
         ),
+//        'app_begin'       => array(
+//            'Behavior\ReadHtmlCacheBehavior', // 读取静态缓存
+//        ),
+//        'template_filter' => array(
+//            'Behavior\ContentReplaceBehavior', // 模板输出替换
+//        ),
 //        'view_filter' => array(
 //            'Behavior\WriteHtmlCacheBehavior', // 写入静态缓存
 //        ),
