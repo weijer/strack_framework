@@ -39,6 +39,120 @@ class Loader
     private static $files = [];
 
     /**
+     * 框架类自动加载
+     * @param $class
+     */
+    public static function autoload($class)
+    {
+        // 检查是否存在映射
+        if (isset(self::$_map[$class])) {
+            include self::$_map[$class];
+        } elseif (false !== strpos($class, '\\')) {
+            $name = strstr($class, '\\', true);
+            if (in_array($name, array('Think', 'Org', 'Behavior', 'Com', 'Vendor')) || is_dir(LIB_PATH . $name)) {
+                // Library目录下面的命名空间自动定位
+                $path = LIB_PATH;
+            } else {
+                // 检测自定义命名空间 否则就以模块为命名空间
+                $namespace = C('AUTOLOAD_NAMESPACE');
+                $path = isset($namespace[$name]) ? dirname($namespace[$name]) . '/' : APP_PATH;
+            }
+            $filename = $path . str_replace('\\', '/', $class) . EXT;
+            if (is_file($filename)) {
+                // Win环境下面严格区分大小写
+                if (IS_WIN && false === strpos(str_replace('/', '\\', realpath($filename)), $class . EXT)) {
+                    return;
+                }
+                include $filename;
+            }
+        } elseif (!C('APP_USE_NAMESPACE')) {
+            // 自动加载的类库层
+            foreach (explode(',', C('APP_AUTOLOAD_LAYER')) as $layer) {
+                if (substr($class, -strlen($layer)) == $layer) {
+                    if (require_cache(MODULE_PATH . $layer . '/' . $class . EXT)) {
+                        return;
+                    }
+                }
+            }
+            // 根据自动加载路径设置进行尝试搜索
+            foreach (explode(',', C('APP_AUTOLOAD_PATH')) as $path) {
+                if (import($path . '.' . $class)) // 如果加载类成功则返回
+                {
+                    return;
+                }
+
+            }
+        }
+    }
+
+    /**
+     * 查找文件
+     * @param $class
+     * @return bool
+     */
+    private static function findFile($class)
+    {
+        if (!empty(self::$_map[$class])) {
+            // 类库映射
+            return self::$_map[$class];
+        }
+
+        // 查找 PSR-4
+        $logicalPathPsr4 = strtr($class, '\\', DS) . EXT;
+
+        $first = $class[0];
+        if (isset(self::$prefixLengthsPsr4[$first])) {
+            foreach (self::$prefixLengthsPsr4[$first] as $prefix => $length) {
+                if (0 === strpos($class, $prefix)) {
+                    foreach (self::$prefixDirsPsr4[$prefix] as $dir) {
+                        if (is_file($file = $dir . DS . substr($logicalPathPsr4, $length))) {
+                            return $file;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 查找 PSR-4 fallback dirs
+        foreach (self::$fallbackDirsPsr4 as $dir) {
+            if (is_file($file = $dir . DS . $logicalPathPsr4)) {
+                return $file;
+            }
+        }
+
+        // 查找 PSR-0
+        if (false !== $pos = strrpos($class, '\\')) {
+            // namespaced class name
+            $logicalPathPsr0 = substr($logicalPathPsr4, 0, $pos + 1)
+                . strtr(substr($logicalPathPsr4, $pos + 1), '_', DS);
+        } else {
+            // PEAR-like class name
+            $logicalPathPsr0 = strtr($class, '_', DS) . EXT;
+        }
+
+        if (isset(self::$prefixesPsr0[$first])) {
+            foreach (self::$prefixesPsr0[$first] as $prefix => $dirs) {
+                if (0 === strpos($class, $prefix)) {
+                    foreach ($dirs as $dir) {
+                        if (is_file($file = $dir . DS . $logicalPathPsr0)) {
+                            return $file;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 查找 PSR-0 fallback dirs
+        foreach (self::$fallbackDirsPsr0 as $dir) {
+            if (is_file($file = $dir . DS . $logicalPathPsr0)) {
+                return $file;
+            }
+        }
+
+        return self::$_map[$class] = false;
+    }
+
+    /**
      * 注册classmap
      * @param $class
      * @param string $map
@@ -49,6 +163,109 @@ class Loader
             self::$_map = array_merge(self::$_map, $class);
         } else {
             self::$_map[$class] = $map;
+        }
+    }
+
+    /**
+     * 注册命名空间
+     * @param $namespace
+     * @param string $path
+     */
+    public static function addNamespace($namespace, $path = '')
+    {
+        if (is_array($namespace)) {
+            foreach ($namespace as $prefix => $paths) {
+                self::addPsr4($prefix . '\\', rtrim($paths, DS), true);
+            }
+        } else {
+            self::addPsr4($namespace . '\\', rtrim($path, DS), true);
+        }
+    }
+
+    /**
+     * 添加Ps0空间
+     * @param $prefix
+     * @param $paths
+     * @param bool $prepend
+     */
+    private static function addPsr0($prefix, $paths, $prepend = false)
+    {
+        if (!$prefix) {
+            if ($prepend) {
+                self::$fallbackDirsPsr0 = array_merge(
+                    (array)$paths,
+                    self::$fallbackDirsPsr0
+                );
+            } else {
+                self::$fallbackDirsPsr0 = array_merge(
+                    self::$fallbackDirsPsr0,
+                    (array)$paths
+                );
+            }
+
+            return;
+        }
+
+        $first = $prefix[0];
+        if (!isset(self::$prefixesPsr0[$first][$prefix])) {
+            self::$prefixesPsr0[$first][$prefix] = (array)$paths;
+
+            return;
+        }
+        if ($prepend) {
+            self::$prefixesPsr0[$first][$prefix] = array_merge(
+                (array)$paths,
+                self::$prefixesPsr0[$first][$prefix]
+            );
+        } else {
+            self::$prefixesPsr0[$first][$prefix] = array_merge(
+                self::$prefixesPsr0[$first][$prefix],
+                (array)$paths
+            );
+        }
+    }
+
+    /**
+     * 添加Psr4空间
+     * @param $prefix
+     * @param $paths
+     * @param bool $prepend
+     */
+    private static function addPsr4($prefix, $paths, $prepend = false)
+    {
+        if (!$prefix) {
+            // Register directories for the root namespace.
+            if ($prepend) {
+                self::$fallbackDirsPsr4 = array_merge(
+                    (array)$paths,
+                    self::$fallbackDirsPsr4
+                );
+            } else {
+                self::$fallbackDirsPsr4 = array_merge(
+                    self::$fallbackDirsPsr4,
+                    (array)$paths
+                );
+            }
+        } elseif (!isset(self::$prefixDirsPsr4[$prefix])) {
+            // Register directories for a new namespace.
+            $length = strlen($prefix);
+            if ('\\' !== $prefix[$length - 1]) {
+                throw new \InvalidArgumentException("A non-empty PSR-4 prefix must end with a namespace separator.");
+            }
+            self::$prefixLengthsPsr4[$prefix[0]][$prefix] = $length;
+            self::$prefixDirsPsr4[$prefix] = (array)$paths;
+        } elseif ($prepend) {
+            // Prepend directories for an already registered namespace.
+            self::$prefixDirsPsr4[$prefix] = array_merge(
+                (array)$paths,
+                self::$prefixDirsPsr4[$prefix]
+            );
+        } else {
+            // Append directories for an already registered namespace.
+            self::$prefixDirsPsr4[$prefix] = array_merge(
+                self::$prefixDirsPsr4[$prefix],
+                (array)$paths
+            );
         }
     }
 
