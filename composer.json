@@ -13,8 +13,7 @@
     "require": {},
     "autoload": {
         "files": [
-            "helper.php",
-            "app/helper.php"
+            "helper.php"
         ],
         "psr-4": {
             "Think\\": "Library/Think/",
