@@ -21,8 +21,8 @@ return array(
 
     // 公共函数
     'function' => [
-        THINK_PATH . 'Common/functions.php',
-        COMMON_PATH . 'Common/functions.php',
+        THINK_PATH . 'helper.php',
+        APP_PATH . 'helper.php',
     ],
 
     // 别名定义
