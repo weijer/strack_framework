@@ -32,16 +32,18 @@ class Ftp
     private $link;
 
     private $config = array(
-        'host'     => '', //服务器
-        'port'     => 21, //端口
-        'timeout'  => 90, //超时时间
+        'host' => '', //服务器
+        'port' => 21, //端口
+        'timeout' => 90, //超时时间
         'username' => '', //用户名
         'password' => '', //密码
     );
 
     /**
      * 构造函数，用于设置上传根路径
-     * @param array  $config FTP配置
+     * Ftp constructor.
+     * @param $config
+     * @throws \Think\Exception
      */
     public function __construct($config)
     {
@@ -56,7 +58,7 @@ class Ftp
 
     /**
      * 检测上传根目录
-     * @param string $rootpath   根目录
+     * @param string $rootpath 根目录
      * @return boolean true-检测通过，false-检测失败
      */
     public function checkRootPath($rootpath)
@@ -89,7 +91,7 @@ class Ftp
 
     /**
      * 保存指定文件
-     * @param  array   $file    保存的文件信息
+     * @param  array $file 保存的文件信息
      * @param  boolean $replace 同名文件是否覆盖
      * @return boolean          保存状态，true-成功，false-失败
      */
@@ -98,10 +100,10 @@ class Ftp
         $filename = $this->rootPath . $file['savepath'] . $file['savename'];
 
         /* 不覆盖同名文件 */
-        // if (!$replace && is_file($filename)) {
-        //     $this->error = '存在同名文件' . $file['savename'];
-        //     return false;
-        // }
+//         if (!$replace && is_file($filename)) {
+//             $this->error = '存在同名文件' . $file['savename'];
+//             return false;
+//         }
 
         /* 移动文件 */
         if (!ftp_put($this->link, $filename, $file['tmp_name'], FTP_BINARY)) {
@@ -148,16 +150,15 @@ class Ftp
      */
     private function login()
     {
-        extract($this->config);
-        $this->link = ftp_connect($host, $port, $timeout);
+        $this->link = ftp_connect($this->config['host'], $this->config['port'], $this->config['timeout']);
         if ($this->link) {
-            if (ftp_login($this->link, $username, $password)) {
+            if (ftp_login($this->link, $this->config['username'], $this->config['password'])) {
                 return true;
             } else {
-                $this->error = "无法登录到FTP服务器：username - {$username}";
+                $this->error = "无法登录到FTP服务器：username - {$this->config['username']}";
             }
         } else {
-            $this->error = "无法连接到FTP服务器：{$host}";
+            $this->error = "无法连接到FTP服务器：{$this->config['host']}";
         }
         return false;
     }
