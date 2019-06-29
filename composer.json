@@ -9,7 +9,6 @@
             "email": "weiwei163@foxmail.com"
         }
     ],
-    "minimum-stability": "dev",
     "require": {},
     "autoload": {
         "files": [
