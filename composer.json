@@ -18,8 +18,7 @@
         "psr-4": {
             "Think\\": "Library/Think/",
             "Behavior\\": "Library/Behavior/",
-            "Org\\Net\\" : "Library/Org/Net/",
-            "Org\\Util\\" : "Library/Org/Util/"
+            "Think\\Helper\\": "Library/Helper/"
         }
     }
 }
