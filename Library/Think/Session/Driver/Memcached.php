@@ -14,19 +14,17 @@ namespace Think\Session\Driver;
 use SessionHandler;
 use Think\Exception;
 
-class Redis extends SessionHandler
+class Memcached extends SessionHandler
 {
-    /** @var \Redis */
     protected $handler = null;
     protected $config = [
-        'host' => '127.0.0.1', // redis主机
-        'port' => 6379, // redis端口
-        'password' => '', // 密码
-        'select' => 0, // 操作库
-        'expire' => 3600, // 有效期(秒)
-        'timeout' => 0, // 超时时间(秒)
-        'persistent' => true, // 是否长连接
-        'session_name' => '', // sessionkey前缀
+        'host' => '127.0.0.1', // memcache主机
+        'port' => 11211, // memcache端口
+        'expire' => 3600, // session有效期
+        'timeout' => 0, // 连接超时时间（单位：毫秒）
+        'session_name' => '', // memcache key前缀
+        'username' => '', //账号
+        'password' => '', //密码
     ];
 
     public function __construct($config = [])
@@ -39,29 +37,34 @@ class Redis extends SessionHandler
      * @access public
      * @param string $savePath
      * @param mixed $sessName
-     * @return bool
-     * @throws Exception
      */
     public function open($savePath, $sessName)
     {
         // 检测php环境
-        if (!extension_loaded('redis')) {
-            throw new Exception('not support:redis');
+        if (!extension_loaded('memcached')) {
+            throw new Exception('not support:memcached');
         }
-        $this->handler = new \Redis;
-
+        $this->handler = new \Memcached;
+        // 设置连接超时时间（单位：毫秒）
+        if ($this->config['timeout'] > 0) {
+            $this->handler->setOption(\Memcached::OPT_CONNECT_TIMEOUT, $this->config['timeout']);
+        }
+        // 支持集群
+        $hosts = explode(',', $this->config['host']);
+        $ports = explode(',', $this->config['port']);
+        if (empty($ports[0])) {
+            $ports[0] = 11211;
+        }
         // 建立连接
-        $func = $this->config['persistent'] ? 'pconnect' : 'connect';
-        $this->handler->$func($this->config['host'], $this->config['port'], $this->config['timeout']);
-
-        if ('' != $this->config['password']) {
-            $this->handler->auth($this->config['password']);
+        $servers = [];
+        foreach ((array)$hosts as $i => $host) {
+            $servers[] = [$host, (isset($ports[$i]) ? $ports[$i] : $ports[0]), 1];
         }
-
-        if (0 != $this->config['select']) {
-            $this->handler->select($this->config['select']);
+        $this->handler->addServers($servers);
+        if ('' != $this->config['username']) {
+            $this->handler->setOption(\Memcached::OPT_BINARY_PROTOCOL, true);
+            $this->handler->setSaslAuthData($this->config['username'], $this->config['password']);
         }
-
         return true;
     }
 
@@ -72,7 +75,7 @@ class Redis extends SessionHandler
     public function close()
     {
         $this->gc(ini_get('session.gc_maxlifetime'));
-        $this->handler->close();
+        $this->handler->quit();
         $this->handler = null;
         return true;
     }
@@ -81,7 +84,6 @@ class Redis extends SessionHandler
      * 读取Session
      * @access public
      * @param string $sessID
-     * @return string
      */
     public function read($sessID)
     {
@@ -97,11 +99,7 @@ class Redis extends SessionHandler
      */
     public function write($sessID, $sessData)
     {
-        if ($this->config['expire'] > 0) {
-            return $this->handler->setex($this->config['session_name'] . $sessID, $this->config['expire'], $sessData);
-        } else {
-            return $this->handler->set($this->config['session_name'] . $sessID, $sessData);
-        }
+        return $this->handler->set($this->config['session_name'] . $sessID, $sessData, $this->config['expire']);
     }
 
     /**
@@ -112,14 +110,14 @@ class Redis extends SessionHandler
      */
     public function destroy($sessID)
     {
-        return $this->handler->delete($this->config['session_name'] . $sessID) > 0;
+        return $this->handler->delete($this->config['session_name'] . $sessID);
     }
 
     /**
      * Session 垃圾回收
      * @access public
      * @param string $sessMaxLifeTime
-     * @return bool
+     * @return true
      */
     public function gc($sessMaxLifeTime)
     {
