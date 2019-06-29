@@ -49,7 +49,7 @@ class Loader
             include self::$_map[$class];
         } elseif (false !== strpos($class, '\\')) {
             $name = strstr($class, '\\', true);
-            if (in_array($name, array('Think', 'Org', 'Behavior', 'Com', 'Vendor')) || is_dir(LIB_PATH . $name)) {
+            if (in_array($name, array('Think', 'Behavior')) || is_dir(LIB_PATH . $name)) {
                 // Library目录下面的命名空间自动定位
                 $path = LIB_PATH;
             } else {
@@ -383,7 +383,6 @@ class Loader
         defined('CORE_PATH') or define('CORE_PATH', LIB_PATH . 'Think' . DS); // Think类库目录
         defined('BEHAVIOR_PATH') or define('BEHAVIOR_PATH', LIB_PATH . 'Behavior' . DS); // 行为类库目录
         defined('MODE_PATH') or define('MODE_PATH', THINK_PATH . 'Mode' . DS); // 系统应用模式目录
-        defined('VENDOR_PATH') or define('VENDOR_PATH', LIB_PATH . 'Vendor' . DS); // 第三方类库目录
         defined('CONF_EXT') or define('CONF_EXT', '.php'); // 配置文件后缀
         defined('CONF_PARSE') or define('CONF_PARSE', ''); // 配置文件解析方法
         defined('ADDON_PATH') or define('ADDON_PATH', APP_PATH . 'Addon');
