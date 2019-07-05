@@ -12,7 +12,6 @@ namespace Think;
 
 class App
 {
-
     /**
      * @var bool 是否初始化过
      */
@@ -50,19 +49,12 @@ class App
             define('IS_DELETE', REQUEST_METHOD == 'DELETE' ? true : false);
         }
 
-        // URL调度
-        Dispatcher::dispatch();
-
-
         if (C('REQUEST_VARS_FILTER')) {
             // 全局安全过滤
             array_walk_recursive($_GET, 'think_filter');
             array_walk_recursive($_POST, 'think_filter');
             array_walk_recursive($_REQUEST, 'think_filter');
         }
-
-        // URL调度结束标签
-        Hook::listen('url_dispatch');
 
         if (!IS_CLI) {
             define('IS_AJAX', ((isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') || !empty($_POST[C('VAR_AJAX_SUBMIT')]) || !empty($_GET[C('VAR_AJAX_SUBMIT')])) ? true : false);
@@ -102,6 +94,12 @@ class App
     public static function run(Request $request = null)
     {
         is_null($request) && $request = Request::instance();
+
+        // URL调度
+        Dispatcher::dispatch($request);
+
+        // URL调度结束标签
+        Hook::listen('url_dispatch');
 
         // 应用初始化标签
         Hook::listen('app_init');

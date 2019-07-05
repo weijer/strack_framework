@@ -19,7 +19,7 @@
 return array(
     /* 框架版本号 */
     'THINK_VERSION'          => '6.6.6',
-    
+
     /* 应用设定 */
     'APP_NAMESPACE'          => 'App',
     'APP_USE_NAMESPACE'      => true, // 应用类库是否使用命名空间
@@ -144,6 +144,7 @@ return array(
     // 0 (普通模式); 1 (PATHINFO 模式); 2 (REWRITE  模式); 3 (兼容模式)  默认为PATHINFO 模式
     'URL_PATHINFO_DEPR'      => '/', // PATHINFO模式下，各参数之间的分割符号
     'URL_PATHINFO_FETCH'     => 'ORIG_PATH_INFO,REDIRECT_PATH_INFO,REDIRECT_URL', // 用于兼容判断PATH_INFO 参数的SERVER替代变量列表
+    'PATHINFO_FETCH'         => ['ORIG_PATH_INFO', 'REDIRECT_PATH_INFO', 'REDIRECT_URL'],
     'URL_REQUEST_URI'        => 'REQUEST_URI', // 获取当前页面地址的系统变量 默认为REQUEST_URI
     'URL_HTML_SUFFIX'        => 'html', // URL伪静态后缀设置
     'URL_DENY_SUFFIX'        => 'ico|png|gif|jpg', // URL禁止访问的后缀设置
@@ -161,13 +162,17 @@ return array(
     'VAR_CONTROLLER'         => 'c', // 默认控制器获取变量
     'VAR_ACTION'             => 'a', // 默认操作获取变量
     'VAR_AJAX_SUBMIT'        => 'ajax', // 默认的AJAX提交变量
+    'VAR_AJAX'               => '_ajax',
+    'VAR_PJAX'               => '_pjax',
     'VAR_JSONP_HANDLER'      => 'callback',
     'VAR_PATHINFO'           => 's', // 兼容模式PATHINFO获取变量例如 ?s=/module/action/id/1 后面的参数取决于URL_PATHINFO_DEPR
     'VAR_TEMPLATE'           => 't', // 默认模板切换变量
     'VAR_AUTO_STRING'        => false, // 输入变量是否自动强制转换为字符串 如果开启则数组变量需要手动传入变量修饰符获取变量
+    'VAR_METHOD'             => '_method',   // 表单请求类型伪装变量
 
     'HTTP_CACHE_CONTROL'     => 'private', // 网页缓存控制
     'CHECK_APP_DIR'          => true, // 是否检查应用目录是否创建
     'FILE_UPLOAD_TYPE'       => 'Local', // 文件上传方式
     'DATA_CRYPT_TYPE'        => 'Think', // 数据加密方式
+    'HTTPS_AGENT_NAME'       => '', // HTTPS代理标识
 );

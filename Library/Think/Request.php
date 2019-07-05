@@ -135,7 +135,7 @@ class Request
             }
         }
         if (is_null($this->filter)) {
-            $this->filter = C('default_filter');
+            $this->filter = C('DEFAULT_FILTER');
         }
 
         // 保存 php://input
@@ -384,10 +384,10 @@ class Request
     public function pathinfo()
     {
         if (is_null($this->pathinfo)) {
-            if (isset($_GET[C('var_pathinfo')])) {
+            if (isset($_GET[C('VAR_PATHINFO')])) {
                 // 判断URL里面是否有兼容模式参数
                 $_SERVER['PATH_INFO'] = $_GET[C('var_pathinfo')];
-                unset($_GET[C('var_pathinfo')]);
+                unset($_GET[C('VAR_PATHINFO')]);
             } elseif (IS_CLI) {
                 // CLI模式下 index.php module/controller/action/params/...
                 $_SERVER['PATH_INFO'] = isset($_SERVER['argv'][1]) ? $_SERVER['argv'][1] : '';
@@ -395,7 +395,7 @@ class Request
 
             // 分析PATHINFO信息
             if (!isset($_SERVER['PATH_INFO'])) {
-                foreach (C('pathinfo_fetch') as $type) {
+                foreach (C('PATHINFO_FETCH') as $type) {
                     if (!empty($_SERVER[$type])) {
                         $_SERVER['PATH_INFO'] = (0 === strpos($_SERVER[$type], $_SERVER['SCRIPT_NAME'])) ?
                             substr($_SERVER[$type], strlen($_SERVER['SCRIPT_NAME'])) : $_SERVER[$type];
@@ -416,7 +416,7 @@ class Request
     public function path()
     {
         if (is_null($this->path)) {
-            $suffix = C('url_html_suffix');
+            $suffix = C('URL_HTML_SUFFIX');
             $pathinfo = $this->pathinfo();
             if (false === $suffix) {
                 // 禁止伪静态访问
@@ -430,6 +430,18 @@ class Request
             }
         }
         return $this->path;
+    }
+
+    /**
+     * 获取path
+     * @return string
+     */
+    public function getPathinfo()
+    {
+        if (!empty($this->pathinfo)) {
+            return $this->path();
+        }
+        return '';
     }
 
     /**
@@ -504,15 +516,15 @@ class Request
             // 获取原始请求类型
             return $this->server('REQUEST_METHOD') ?: 'GET';
         } elseif (!$this->method) {
-            if (isset($_POST[C('var_method')])) {
-                $method = strtoupper($_POST[C('var_method')]);
+            if (isset($_POST[C('VAR_METHOD')])) {
+                $method = strtoupper($_POST[C('VAR_METHOD')]);
                 if (in_array($method, ['GET', 'POST', 'DELETE', 'PUT', 'PATCH'])) {
                     $this->method = $method;
                     $this->{$this->method}($_POST);
                 } else {
                     $this->method = 'POST';
                 }
-                unset($_POST[C('var_method')]);
+                unset($_POST[C('VAR_METHOD')]);
             } elseif (isset($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'])) {
                 $this->method = strtoupper($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE']);
             } else {
@@ -1315,7 +1327,7 @@ class Request
             return true;
         } elseif (isset($server['HTTP_X_FORWARDED_PROTO']) && 'https' == $server['HTTP_X_FORWARDED_PROTO']) {
             return true;
-        } elseif (C('https_agent_name') && isset($server[C('https_agent_name')])) {
+        } elseif (C('HTTPS_AGENT_NAME') && isset($server[C('HTTPS_AGENT_NAME')])) {
             return true;
         }
         return false;
@@ -1334,7 +1346,7 @@ class Request
         if (true === $ajax) {
             return $result;
         } else {
-            return $this->param(C('var_ajax')) ? true : $result;
+            return $this->param(C('VAR_AJAX')) ? true : $result;
         }
     }
 
@@ -1350,7 +1362,7 @@ class Request
         if (true === $pjax) {
             return $result;
         } else {
-            return $this->param(C('var_pjax')) ? true : $result;
+            return $this->param(C('VAR_PJAX')) ? true : $result;
         }
     }
 
@@ -1368,7 +1380,7 @@ class Request
             return $ip[$type];
         }
 
-        $httpAgentIp = C('http_agent_ip');
+        $httpAgentIp = C('HTTP_AGENT_IP');
 
         if ($httpAgentIp && isset($_SERVER[$httpAgentIp])) {
             $ip = $_SERVER[$httpAgentIp];
