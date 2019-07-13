@@ -10,6 +10,8 @@
 // +----------------------------------------------------------------------
 namespace Behavior;
 
+use Think\Request;
+
 /**
  * 系统行为扩展：操作路由检测
  */
@@ -36,7 +38,7 @@ class CheckActionRouteBehavior
             foreach ($routes as $rule => $route) {
                 if (0 === strpos($rule, '/') && preg_match($rule, $regx, $matches)) {
                     // 正则路由
-                    return C('ACTION_NAME', $this->parseRegex($matches, $route, $regx));
+                    return C(Request::instance()->action(), $this->parseRegex($matches, $route, $regx));
                 } else {
                     // 规则路由
                     $len1 = substr_count($regx, '/');
@@ -52,7 +54,7 @@ class CheckActionRouteBehavior
                         }
                         $match = $this->checkUrlMatch($regx, $rule);
                         if ($match) {
-                            return C('ACTION_NAME', $this->parseRule($rule, $route, $regx));
+                            return C(Request::instance()->action(), $this->parseRule($rule, $route, $regx));
                         }
 
                     }

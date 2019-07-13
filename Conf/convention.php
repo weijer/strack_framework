@@ -30,8 +30,12 @@ return array(
     'MULTI_MODULE'           => true, // 是否允许多模块 如果为false 则必须设置 DEFAULT_MODULE
     'MODULE_DENY_LIST'       => array('Common', 'Runtime'),
     'CONTROLLER_LEVEL'       => 1,
+    'AUTO_BIND_MODULE'       => false,
     'APP_AUTOLOAD_LAYER'     => 'Controller,Model', // 自动加载的应用类库层 关闭APP_USE_NAMESPACE后有效
     'APP_AUTOLOAD_PATH'      => '', // 自动加载的路径 关闭APP_USE_NAMESPACE后有效
+
+    // 默认的访问控制器层
+    'URL_CONTROLLER_LAYER'   => 'Controller',
 
     /* Cookie设置 */
     'COOKIE_EXPIRE'          => 0, // Cookie有效期
@@ -56,6 +60,15 @@ return array(
     'DEFAULT_AJAX_RETURN'    => 'JSON', // 默认AJAX 数据返回格式,可选JSON XML ...
     'DEFAULT_JSONP_HANDLER'  => 'jsonpReturn', // 默认JSONP格式返回的处理方法
     'DEFAULT_FILTER'         => 'htmlspecialchars', // 默认参数过滤方法 用于I函数...
+
+    // 控制器类后缀
+    'CONTROLLER_SUFFIX'      => true,
+
+    // 是否自动转换URL中的控制器和操作名
+    'URL_CONVERT'            => true,
+
+    // 操作方法前缀
+    'USE_ACTION_PREFIX'      => false,
 
     /* 数据库设置 */
     'DB_TYPE'                => '', // 数据库类型
@@ -156,6 +169,33 @@ return array(
     'URL_ROUTE_RULES'        => array(), // 默认路由规则 针对模块
     'URL_MAP_RULES'          => array(), // URL映射定义规则
 
+    // 路由配置文件（支持配置多个）
+    'ROUTE_CONFIG_FILE'      => ['route'],
+
+    // 默认的空控制器名
+    'EMPTY_CONTROLLER'       => 'Error',
+
+    // 路由使用完整匹配
+    'ROUTE_COMPLETE_MATCH'   => false,
+
+    // 域名根，如thinkphp.cn
+    'URL_DOMAIN_ROOT'        => '',
+
+    // 是否开启路由
+    'URL_ROUTE_ON'           => true,
+
+    // 是否开启路由解析缓存
+    'ROUTE_CHECK_CACHE'      => false,
+
+    // 是否强制使用路由
+    'URL_ROUTE_MUST'         => false,
+
+    // 域名部署
+    'URL_DOMAIN_DEPLOY'      => false,
+
+    // 自动搜索控制器
+    'CONTROLLER_AUTO_SEARCH' => false,
+
     /* 系统变量名称设置 */
     'VAR_MODULE'             => 'm', // 默认模块获取变量
     'VAR_ADDON'              => 'addon', // 默认的插件控制器命名空间变量
@@ -170,8 +210,17 @@ return array(
     'VAR_AUTO_STRING'        => false, // 输入变量是否自动强制转换为字符串 如果开启则数组变量需要手动传入变量修饰符获取变量
     'VAR_METHOD'             => '_method',   // 表单请求类型伪装变量
 
+    // 是否开启请求缓存 true自动缓存 支持设置请求缓存规则
+    'REQUEST_CACHE'          => false,
+
+    // 请求缓存有效期
+    'REQUEST_CACHE_EXPIRE'   => null,
+
+    // 全局请求缓存排除规则
+    'REQUEST_CACHE_EXCEPT'   => [],
+
     'HTTP_CACHE_CONTROL'     => 'private', // 网页缓存控制
-    'CHECK_APP_DIR'          => true, // 是否检查应用目录是否创建
+    'CHECK_APP_DIR'          => false, // 是否检查应用目录是否创建
     'FILE_UPLOAD_TYPE'       => 'Local', // 文件上传方式
     'DATA_CRYPT_TYPE'        => 'Think', // 数据加密方式
     'HTTPS_AGENT_NAME'       => '', // HTTPS代理标识

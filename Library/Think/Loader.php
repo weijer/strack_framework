@@ -39,53 +39,6 @@ class Loader
     private static $files = [];
 
     /**
-     * 框架类自动加载
-     * @param $class
-     */
-    public static function autoload($class)
-    {
-        // 检查是否存在映射
-        if (isset(self::$_map[$class])) {
-            include self::$_map[$class];
-        } elseif (false !== strpos($class, '\\')) {
-            $name = strstr($class, '\\', true);
-            if (in_array($name, array('Think', 'Behavior')) || is_dir(LIB_PATH . $name)) {
-                // Library目录下面的命名空间自动定位
-                $path = LIB_PATH;
-            } else {
-                // 检测自定义命名空间 否则就以模块为命名空间
-                $namespace = C('AUTOLOAD_NAMESPACE');
-                $path = isset($namespace[$name]) ? dirname($namespace[$name]) . '/' : APP_PATH;
-            }
-            $filename = $path . str_replace('\\', '/', $class) . EXT;
-            if (is_file($filename)) {
-                // Win环境下面严格区分大小写
-                if (IS_WIN && false === strpos(str_replace('/', '\\', realpath($filename)), $class . EXT)) {
-                    return;
-                }
-                include $filename;
-            }
-        } elseif (!C('APP_USE_NAMESPACE')) {
-            // 自动加载的类库层
-            foreach (explode(',', C('APP_AUTOLOAD_LAYER')) as $layer) {
-                if (substr($class, -strlen($layer)) == $layer) {
-                    if (require_cache(MODULE_PATH . $layer . '/' . $class . EXT)) {
-                        return;
-                    }
-                }
-            }
-            // 根据自动加载路径设置进行尝试搜索
-            foreach (explode(',', C('APP_AUTOLOAD_PATH')) as $path) {
-                if (import($path . '.' . $class)) // 如果加载类成功则返回
-                {
-                    return;
-                }
-
-            }
-        }
-    }
-
-    /**
      * 查找文件
      * @param $class
      * @return bool
@@ -298,6 +251,8 @@ class Loader
         {
             Hook::import(include CONF_PATH . 'tags.php');
         }
+
+        defined('BIND_MODULE') or define(BIND_MODULE, C('DEFAULT_MODULE'));
     }
 
     /**
@@ -339,10 +294,9 @@ class Loader
     private static function checkAppDir()
     {
         if (C('CHECK_APP_DIR')) {
-            $module = defined('BIND_MODULE') ? BIND_MODULE : C('DEFAULT_MODULE');
-            if (!is_dir(APP_PATH . $module) || !is_dir(LOG_PATH)) {
+            if (!is_dir(APP_PATH . BIND_MODULE) || !is_dir(LOG_PATH)) {
                 // 检测应用目录结构
-                Build::checkDir($module);
+                Build::checkDir(BIND_MODULE);
             }
         }
     }
@@ -388,6 +342,7 @@ class Loader
         defined('ADDON_PATH') or define('ADDON_PATH', APP_PATH . 'Addon');
         defined('ENV_PREFIX') or define('ENV_PREFIX', 'PHP_'); // 环境变量的配置前缀
         defined('MAGIC_QUOTES_GPC') or define('MAGIC_QUOTES_GPC', false);
+
         define('IS_CGI', (0 === strpos(PHP_SAPI, 'cgi') || false !== strpos(PHP_SAPI, 'fcgi')) ? 1 : 0);
         define('IS_WIN', strstr(PHP_OS, 'WIN') ? 1 : 0);
         define('IS_CLI', PHP_SAPI == 'cli' ? 1 : 0);
@@ -486,11 +441,75 @@ class Loader
      */
     public static function parseClass($module, $layer, $name, $appendSuffix = false)
     {
-        $name = str_replace(['/', '.'], '\\', $name);
-        $array = explode('\\', $name);
-        $class = self::parseName(array_pop($array), 1) . (App::$suffix || $appendSuffix ? ucfirst($layer) : '');
-        $path = $array ? implode('\\', $array) . '\\' : '';
-        return App::$namespace . '\\' . ($module ? $module . '\\' : '') . $layer . '\\' . $path . $class;
+        $array = explode('\\', str_replace(['/', '.'], '\\', $name));
+
+        $class = self::parseName(array_pop($array), 1);
+        $class = $class . (App::$suffix || $appendSuffix ? ucfirst($layer) : '');
+        $path  = $array ? implode('\\', $array) . '\\' : '';
+
+        return ($module ? $module . '\\' : '') . $layer . '\\' . $path . $class;
+    }
+
+    /**
+     * 解析模块和类名
+     * @access protected
+     * @param  string $name         资源地址
+     * @param  string $layer        验证层名称
+     * @param  bool   $appendSuffix 是否添加类名后缀
+     * @return array
+     */
+    protected static function getModuleAndClass($name, $layer, $appendSuffix)
+    {
+        if (false !== strpos($name, '\\')) {
+            $module = Request::instance()->module();
+            $class  = $name;
+        } else {
+            if (strpos($name, '/')) {
+                list($module, $name) = explode('/', $name, 2);
+            } else {
+                $module = Request::instance()->module();
+            }
+
+            $class = self::parseClass($module, $layer, $name, $appendSuffix);
+        }
+
+        return [$module, $class];
+    }
+
+
+    /**
+     * 实例化（分层）模型
+     * @access public
+     * @param  string $name         Model名称
+     * @param  string $layer        业务层名称
+     * @param  bool   $appendSuffix 是否添加类名后缀
+     * @param  string $common       公共模块名
+     * @return object
+     * @throws ClassNotFoundException
+     */
+    public static function model($name = '', $layer = 'model', $appendSuffix = false, $common = 'common')
+    {
+        $uid = $name . $layer;
+
+        if (isset(self::$instance[$uid])) {
+            return self::$instance[$uid];
+        }
+
+        list($module, $class) = self::getModuleAndClass($name, $layer, $appendSuffix);
+
+        if (class_exists($class)) {
+            $model = new $class();
+        } else {
+            $class = str_replace('\\' . $module . '\\', '\\' . $common . '\\', $class);
+
+            if (class_exists($class)) {
+                $model = new $class();
+            } else {
+                throw new ClassNotFoundException('class not exists:' . $class, $class);
+            }
+        }
+
+        return self::$instance[$uid] = $model;
     }
 
     /**
@@ -504,22 +523,21 @@ class Loader
      */
     public static function controller($name, $layer = 'controller', $appendSuffix = false, $empty = '')
     {
-        if (false !== strpos($name, '\\')) {
-            $class = $name;
-            $module = MODULE_NAME;
-        } else {
-            if (strpos($name, '/')) {
-                list($module, $name) = explode('/', $name);
-            } else {
-                $module = MODULE_NAME;
-            }
-            $class = self::parseClass($module, $layer, $name, $appendSuffix);
-        }
+        list($module, $class) = self::getModuleAndClass($name, $layer, $appendSuffix);
+
         if (class_exists($class)) {
             return App::invokeClass($class);
-        } elseif ($empty && class_exists($emptyClass = self::parseClass($module, $layer, $empty, $appendSuffix))) {
-            return new $emptyClass(Request::instance());
         }
+
+        if ($empty) {
+            $emptyClass = self::parseClass($module, $layer, $empty, $appendSuffix);
+
+            if (class_exists($emptyClass)) {
+                return new $emptyClass(Request::instance());
+            }
+        }
+
+        throw new ClassNotFoundException('class not exists:' . $class, $class);
     }
 
 
@@ -535,7 +553,7 @@ class Loader
     {
         $info = pathinfo($url);
         $action = $info['basename'];
-        $module = '.' != $info['dirname'] ? $info['dirname'] : CONTROLLER_NAME;
+        $module = '.' != $info['dirname'] ? $info['dirname'] : Request::instance()->controller();
         $class = self::controller($module, $layer, $appendSuffix);
         if ($class) {
             if (is_scalar($vars)) {
@@ -547,6 +565,8 @@ class Loader
             }
             return App::invokeMethod([$class, $action . C('ACTION_SUFFIX')], $vars);
         }
+
+        return false;
     }
 
 

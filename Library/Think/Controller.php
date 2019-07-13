@@ -173,7 +173,7 @@ class Controller
      */
     public function __call($method, $args)
     {
-        if (0 === strcasecmp($method, ACTION_NAME . C('ACTION_SUFFIX'))) {
+        if (0 === strcasecmp($method, Request::instance()->action() . C('ACTION_SUFFIX'))) {
             if (method_exists($this, '_empty')) {
                 // 如果定义了_empty操作 则调用
                 $this->_empty($method, $args);
@@ -181,7 +181,7 @@ class Controller
                 // 检查是否存在默认模版 如果有直接输出模版
                 $this->display();
             } else {
-                E(L('_ERROR_ACTION_') . ':' . ACTION_NAME);
+                E(L('_ERROR_ACTION_') . ':' . Request::instance()->action());
             }
         } else {
             E(__CLASS__ . ':' . $method . L('_METHOD_NOT_EXIST_'));
