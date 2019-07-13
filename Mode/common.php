@@ -68,6 +68,9 @@ return array(
         'message' => array(
             'Behavior\MessageBehavior', // 处理消息
         ),
+        'auth' => array(
+            'Behavior\AuthBehavior', // 处理消息
+        ),
 //        'app_begin'       => array(
 //            'Behavior\ReadHtmlCacheBehavior', // 读取静态缓存
 //        ),
