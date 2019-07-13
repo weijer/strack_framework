@@ -81,12 +81,7 @@ class CheckLangBehavior
         }
 
         // 定义当前语言
-        if(strtolower(MODULE_NAME) == "api"){
-            // api语言包调用英文
-            defined('LANG_SET') or define('LANG_SET',  'en-us');
-        }else{
-            defined('LANG_SET') or define('LANG_SET',  strtolower($langSet));
-        }
+        defined('LANG_SET') or define('LANG_SET',  'en-us');
 
         // 读取框架语言包
         $file = THINK_PATH . 'Lang/' . LANG_SET . '.php';
@@ -101,16 +96,9 @@ class CheckLangBehavior
         }
 
         // 读取模块语言包
-        $file = MODULE_PATH . 'Lang/' . LANG_SET . '.php';
+        $file = COMMON_PATH . 'Lang/default/' . LANG_SET . '.php';
         if (is_file($file)) {
             L(include $file);
         }
-
-        // 读取当前控制器语言包
-        $file = MODULE_PATH . 'Lang/' . LANG_SET . '/' . strtolower(CONTROLLER_NAME) . '.php';
-        if (is_file($file)) {
-            L(include $file);
-        }
-
     }
 }

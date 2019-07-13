@@ -59,7 +59,7 @@ class Schema extends Command
         } elseif ($input->hasOption('db')) {
             $dbName = $input->getOption('db');
             $tables = Db::getTables($dbName);
-        } elseif (!\think\Config::get('app_multi_module')) {
+        } elseif (!C('MULTI_MODULE')) {
             $app  = App::$namespace;
             $list = scandir(APP_PATH . 'model');
             foreach ($list as $file) {

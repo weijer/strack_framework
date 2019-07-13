@@ -136,7 +136,7 @@ class Handle
     protected function renderStrackException(StrackException $e)
     {
         $responseType = $e->getResponseType();
-        if (strtolower(MODULE_NAME) === "api" || $responseType === "json") {
+        if ($responseType === "json") {
             $data = $e->getResponseData();
             return Response::create($data, 'json');
         } else {

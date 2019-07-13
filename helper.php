@@ -13,6 +13,8 @@
  * Think 系统函数库
  */
 
+use Think\Loader;
+use Think\Request;
 use Think\Response;
 use Think\Log;
 use Think\Cache;
@@ -238,7 +240,7 @@ if (!function_exists('L')) {
         if (empty($name)) {
             return $_lang;
         }
-
+        
         // 判断语言获取(或设置)
         // 若不存在,直接返回全大写$name
         if (is_string($name)) {
@@ -304,58 +306,6 @@ if (!function_exists('compile')) {
         }
 
         return $content . '}';
-    }
-}
-
-if (!function_exists('T')) {
-    /**
-     * 获取模版文件 格式 资源://模块@主题/控制器/操作
-     * @param string $template 模版资源地址
-     * @param string $layer 视图层（目录）名称
-     * @return string
-     */
-    function T($template = '', $layer = '')
-    {
-
-        // 解析模版资源地址
-        if (false === strpos($template, '://')) {
-            $template = 'http://' . str_replace(':', '/', $template);
-        }
-        $info = parse_url($template);
-        $file = $info['host'] . (isset($info['path']) ? $info['path'] : '');
-        $module = isset($info['user']) ? $info['user'] . '/' : MODULE_NAME . '/';
-        $extend = $info['scheme'];
-        $layer = $layer ? $layer : C('DEFAULT_V_LAYER');
-
-        // 获取当前主题的模版路径
-        $auto = C('AUTOLOAD_NAMESPACE');
-        if ($auto && isset($auto[$extend])) {
-            // 扩展资源
-            $baseUrl = $auto[$extend] . $module . $layer . '/';
-        } elseif (C('VIEW_PATH')) {
-            // 改变模块视图目录
-            $baseUrl = C('VIEW_PATH');
-        } elseif (defined('TMPL_PATH')) {
-            // 指定全局视图目录
-            $baseUrl = TMPL_PATH . $module;
-        } else {
-            $baseUrl = APP_PATH . $module . $layer . '/';
-        }
-
-        // 获取主题
-        $theme = substr_count($file, '/') < 2 ? C('DEFAULT_THEME') : '';
-
-        // 分析模板文件规则
-        $depr = C('TMPL_FILE_DEPR');
-        if ('' == $file) {
-            // 如果模板文件名为空 按照默认规则定位
-            $file = CONTROLLER_NAME . $depr . ACTION_NAME;
-        } elseif (false === strpos($file, '/')) {
-            $file = CONTROLLER_NAME . $depr . $file;
-        } elseif ('/' != $depr) {
-            $file = substr_count($file, '/') > 1 ? substr_replace($file, $depr, strrpos($file, '/'), 1) : str_replace('/', $depr, $file);
-        }
-        return $baseUrl . ($theme ? $theme . '/' : '') . $file . C('TMPL_TEMPLATE_SUFFIX');
     }
 }
 
@@ -628,143 +578,18 @@ if (!function_exists('file_exists_case')) {
     }
 }
 
+if (!function_exists('model')) {
 
-if (!function_exists('import')) {
     /**
-     * 导入所需的类库 同java的Import 本函数有缓存功能
-     * @param string $class 类库命名空间字符串
-     * @param string $baseUrl 起始路径
-     * @param string $ext 导入的文件扩展名
-     * @return boolean
+     * 实例化Model
+     * @param string    $name Model名称
+     * @param string    $layer 业务层名称
+     * @param bool      $appendSuffix 是否添加类名后缀
+     * @return \think\Model
      */
-    function import($class, $baseUrl = '', $ext = EXT)
+    function model($name = '', $layer = 'model', $appendSuffix = false)
     {
-        static $_file = array();
-        $class = str_replace(array('.', '#'), array('/', '.'), $class);
-        if (isset($_file[$class . $baseUrl])) {
-            return true;
-        } else {
-            $_file[$class . $baseUrl] = true;
-        }
-
-        $class_strut = explode('/', $class);
-        if (empty($baseUrl)) {
-            if ('@' == $class_strut[0] || MODULE_NAME == $class_strut[0]) {
-                //加载当前模块的类库
-                $baseUrl = MODULE_PATH;
-                $class = substr_replace($class, '', 0, strlen($class_strut[0]) + 1);
-            } elseif ('Common' == $class_strut[0]) {
-                //加载公共模块的类库
-                $baseUrl = COMMON_PATH;
-                $class = substr($class, 7);
-            } elseif (in_array($class_strut[0], array('Think', 'Org', 'Behavior', 'Com', 'Vendor')) || is_dir(LIB_PATH . $class_strut[0])) {
-                // 系统类库包和第三方类库包
-                $baseUrl = LIB_PATH;
-            } else {
-                // 加载其他模块的类库
-                $baseUrl = APP_PATH;
-            }
-        }
-        if (substr($baseUrl, -1) != '/') {
-            $baseUrl .= '/';
-        }
-
-        $classfile = $baseUrl . $class . $ext;
-        if (!class_exists(basename($class), false)) {
-            // 如果类不存在 则导入类库文件
-            return require_cache($classfile);
-        }
-        return null;
-    }
-}
-
-if (!function_exists('load')) {
-    /**
-     * 基于命名空间方式导入函数库
-     * load('@.Util.Array')
-     * @param string $name 函数库命名空间字符串
-     * @param string $baseUrl 起始路径
-     * @param string $ext 导入的文件扩展名
-     * @return void
-     */
-    function load($name, $baseUrl = '', $ext = '.php')
-    {
-        $name = str_replace(array('.', '#'), array('/', '.'), $name);
-        if (empty($baseUrl)) {
-            if (0 === strpos($name, '@/')) {
-                //加载当前模块函数库
-                $baseUrl = MODULE_PATH . 'Common/';
-                $name = substr($name, 2);
-            } else {
-                //加载其他模块函数库
-                $array = explode('/', $name);
-                $baseUrl = APP_PATH . array_shift($array) . '/Common/';
-                $name = implode('/', $array);
-            }
-        }
-        if (substr($baseUrl, -1) != '/') {
-            $baseUrl .= '/';
-        }
-
-        require_cache($baseUrl . $name . $ext);
-    }
-}
-
-if (!function_exists('vendor')) {
-    /**
-     * 快速导入第三方框架类库 所有第三方框架的类库文件统一放到 系统的Vendor目录下面
-     * @param string $class 类库
-     * @param string $baseUrl 基础目录
-     * @param string $ext 类库后缀
-     * @return boolean
-     */
-    function vendor($class, $baseUrl = '', $ext = '.php')
-    {
-        if (empty($baseUrl)) {
-            $baseUrl = VENDOR_PATH;
-        }
-
-        return import($class, $baseUrl, $ext);
-    }
-}
-
-if (!function_exists('D')) {
-    /**
-     * 实例化模型类 格式 [资源://][模块/]模型
-     * @param string $name 资源地址
-     * @param string $layer 模型层名称
-     * @return Think\Model
-     */
-    function D($name = '', $layer = '')
-    {
-        if (empty($name)) {
-            return new Think\Model;
-        }
-
-        static $_model = array();
-        $layer = $layer ?: C('DEFAULT_M_LAYER');
-        if (isset($_model[$name . $layer])) {
-            return $_model[$name . $layer];
-        }
-
-        $class = parse_res_name($name, $layer);
-
-        if (class_exists($class)) {
-            $model = new $class(basename($name));
-        } elseif (false === strpos($name, '/')) {
-            // 自动加载公共模块下面的模型
-            if (!C('APP_USE_NAMESPACE')) {
-                import('Common/' . $layer . '/' . $class);
-            } else {
-                $class = '\\Common\\' . $layer . '\\' . $name . $layer;
-            }
-            $model = class_exists($class) ? new $class($name) : new Think\Model($name);
-        } else {
-            Think\Log::record('D方法实例化没找到模型类' . $class, Think\Log::NOTICE);
-            $model = new Think\Model(basename($name));
-        }
-        $_model[$name . $layer] = $model;
-        return $model;
+        return Loader::model($name, $layer, $appendSuffix);
     }
 }
 
@@ -793,102 +618,32 @@ if (!function_exists('M')) {
     }
 }
 
-if (!function_exists('parse_res_name')) {
-    /**
-     * 解析资源地址并导入类库文件
-     * 例如 module/controller addon://module/behavior
-     * @param string $name 资源地址 格式：[扩展://][模块/]资源名
-     * @param string $layer 分层名称
-     * @param integer $level 控制器层次
-     * @return string
-     */
-    function parse_res_name($name, $layer, $level = 1)
-    {
-        if (strpos($name, '://')) {
-            // 指定扩展资源
-            list($extend, $name) = explode('://', $name);
-        } else {
-            $extend = '';
-        }
-        if (strpos($name, '/') && substr_count($name, '/') >= $level) {
-            // 指定模块
-            list($module, $name) = explode('/', $name, 2);
-        } else {
-            $module = defined('MODULE_NAME') ? MODULE_NAME : '';
-        }
-        $array = explode('/', $name);
-        if (!C('APP_USE_NAMESPACE')) {
-            $class = parse_name($name, 1);
-            import($module . '/' . $layer . '/' . $class . $layer);
-        } else {
-            $class = $module . '\\' . $layer;
-            foreach ($array as $name) {
-                $class .= '\\' . parse_name($name, 1);
-            }
-            // 导入资源类库
-            if ($extend) {
-                // 扩展资源
-                $class = $extend . '\\' . $class;
-            }
-        }
-        return $class . $layer;
-    }
-}
-
 if (!function_exists('controller')) {
     /**
-     * 用于实例化访问控制器
-     * @param string $name 控制器名
-     * @param string $path 控制器命名空间（路径）
-     * @return Think\Controller|false
+     * 实例化控制器 格式：[模块/]控制器
+     * @param string    $name 资源地址
+     * @param string    $layer 控制层名称
+     * @param bool      $appendSuffix 是否添加类名后缀
+     * @return \think\Controller
      */
-    function controller($name, $path = '')
+    function controller($name, $layer = 'controller', $appendSuffix = false)
     {
-        $layer = C('DEFAULT_C_LAYER');
-        if (!C('APP_USE_NAMESPACE')) {
-            $class = parse_name($name, 1) . $layer;
-            import(MODULE_NAME . '/' . $layer . '/' . $class);
-        } else {
-            $class = ($path ? basename(ADDON_PATH) . '\\' . $path : MODULE_NAME) . '\\' . $layer;
-            $array = explode('/', $name);
-            foreach ($array as $name) {
-                $class .= '\\' . parse_name($name, 1);
-            }
-            $class .= $layer;
-        }
-        if (class_exists($class)) {
-            return new $class();
-        } else {
-            return false;
-        }
+        return Loader::controller($name, $layer, $appendSuffix);
     }
 }
 
-if (!function_exists('A')) {
+if (!function_exists('action')) {
     /**
-     * 实例化多层控制器 格式：[资源://][模块/]控制器
-     * @param string $name 资源地址
-     * @param string $layer 控制层名称
-     * @param integer $level 控制器层次
-     * @return Think\Controller|false
+     * 调用模块的操作方法 参数格式 [模块/控制器/]操作
+     * @param string        $url 调用地址
+     * @param string|array  $vars 调用参数 支持字符串和数组
+     * @param string        $layer 要调用的控制层名称
+     * @param bool          $appendSuffix 是否添加类名后缀
+     * @return mixed
      */
-    function A($name, $layer = '', $level = 0)
+    function action($url, $vars = [], $layer = 'controller', $appendSuffix = false)
     {
-        static $_action = array();
-        $layer = $layer ?: C('DEFAULT_C_LAYER');
-        $level = $level ?: (C('DEFAULT_C_LAYER') == $layer ? C('CONTROLLER_LEVEL') : 1);
-        if (isset($_action[$name . $layer])) {
-            return $_action[$name . $layer];
-        }
-
-        $class = parse_res_name($name, $layer, $level);
-        if (class_exists($class)) {
-            $action = new $class();
-            $_action[$name . $layer] = $action;
-            return $action;
-        } else {
-            return false;
-        }
+        return Loader::action($url, $vars, $layer, $appendSuffix);
     }
 }
 
@@ -1068,11 +823,11 @@ if (!function_exists('U')) {
      * @param boolean $domain 是否显示域名
      * @return string
      */
-    function U($url = '', $vars = '', $suffix = true, $domain = false)
+    function U(Request $request, $url = '', $vars = '', $suffix = true, $domain = false)
     {
         // 解析URL
         $info = parse_url($url);
-        $url = !empty($info['path']) ? $info['path'] : ACTION_NAME;
+        $url = !empty($info['path']) ? $info['path'] : $request->action();
         if (isset($info['fragment'])) {
             // 解析锚点
             $anchor = $info['fragment'];
@@ -1144,8 +899,8 @@ if (!function_exists('U')) {
                 $varModule = C('VAR_MODULE');
                 $varController = C('VAR_CONTROLLER');
                 $varAction = C('VAR_ACTION');
-                $var[$varAction] = !empty($path) ? array_pop($path) : ACTION_NAME;
-                $var[$varController] = !empty($path) ? array_pop($path) : CONTROLLER_NAME;
+                $var[$varAction] = !empty($path) ? array_pop($path) : $request->action();
+                $var[$varController] = !empty($path) ? array_pop($path) : $request->controller();
                 if ($maps = C('URL_ACTION_MAP')) {
                     if (isset($maps[strtolower($var[$varController])])) {
                         $maps = $maps[strtolower($var[$varController])];
@@ -1168,8 +923,8 @@ if (!function_exists('U')) {
                     $var[$varModule] = implode($depr, $path);
                 } else {
                     if (C('MULTI_MODULE')) {
-                        if (MODULE_NAME != C('DEFAULT_MODULE') || !C('MODULE_ALLOW_LIST')) {
-                            $var[$varModule] = MODULE_NAME;
+                        if ($request->module() != C('DEFAULT_MODULE') || !C('MODULE_ALLOW_LIST')) {
+                            $var[$varModule] = $request->module();
                         }
                     }
                 }
@@ -1202,7 +957,7 @@ if (!function_exists('U')) {
                 $url = __APP__ . '/' . rtrim($url, $depr);
             } else {
                 $module = (defined('BIND_MODULE') && BIND_MODULE == $module) ? '' : $module;
-                $url = __APP__ . '/' . ($module ? $module . MODULE_PATHINFO_DEPR : '') . implode($depr, array_reverse($var));
+                $url = __APP__ . '/' . ($module ? $module . C() : 'URL_PATHINFO_DEPR') . implode($depr, array_reverse($var));
             }
             if ($urlCase) {
                 $url = strtolower($url);

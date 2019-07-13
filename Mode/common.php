@@ -32,7 +32,6 @@ return array(
         'Think\Exception' => CORE_PATH . 'Exception' . EXT,
         'Think\Model' => CORE_PATH . 'Model' . EXT,
         'Think\Db' => CORE_PATH . 'Db' . EXT,
-        // 'Think\Template'          => CORE_PATH . 'Template' . EXT,
         'Think\Cache' => CORE_PATH . 'Cache' . EXT,
         'Think\Cache\Driver\File' => CORE_PATH . 'Cache/Driver/File' . EXT,
         'Think\Storage' => CORE_PATH . 'Storage' . EXT,
@@ -48,40 +47,25 @@ return array(
         CORE_PATH . 'Controller' . EXT,
         CORE_PATH . 'Request' . EXT,
         CORE_PATH . 'Response' . EXT,
-        BEHAVIOR_PATH . 'BuildLiteBehavior' . EXT,
-        //CORE_PATH . 'View' . EXT,
-        //BEHAVIOR_PATH . 'ParseTemplateBehavior' . EXT,
-        //BEHAVIOR_PATH . 'ContentReplaceBehavior' . EXT,
+        BEHAVIOR_PATH . 'BuildLiteBehavior' . EXT
     ),
 
     // 行为扩展定义
-    'tags' => array(
-        'app_init' => array(
+    'tags' => [
+        'app_init' => [
             'Behavior\BuildLiteBehavior', // 生成运行Lite文件
-        ),
-        'app_end' => array(
-            'Behavior\ShowPageTraceBehavior', // 页面Trace显示
-        ),
-        'event_log' => array(
+        ],
+        'app_begin' => [
+            'Behavior\CheckLangBehavior'
+        ],
+        'event_log' => [
             'Behavior\EventBehavior', // 写入EventLog
-        ),
-        'message' => array(
+        ],
+        'message' => [
             'Behavior\MessageBehavior', // 处理消息
-        ),
-        'auth' => array(
-            'Behavior\AuthBehavior', // 处理消息
-        ),
-//        'app_begin'       => array(
-//            'Behavior\ReadHtmlCacheBehavior', // 读取静态缓存
-//        ),
-//        'template_filter' => array(
-//            'Behavior\ContentReplaceBehavior', // 模板输出替换
-//        ),
-//        'view_filter' => array(
-//            'Behavior\WriteHtmlCacheBehavior', // 写入静态缓存
-//        ),
-//        'view_parse'      => array(
-//            'Behavior\ParseTemplateBehavior', // 模板解析 支持PHP、内置模板引擎和第三方模板引擎
-//        )
-    ),
+        ],
+        'auth' => [
+            'Behavior\AuthBehavior', // 处理权限
+       ]
+    ],
 );

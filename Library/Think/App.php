@@ -10,12 +10,20 @@
 // +----------------------------------------------------------------------
 namespace Think;
 
+use Think\Exception\HttpResponseException;
+use Think\Exception\HttpException;
+
 class App
 {
     /**
      * @var bool 是否初始化过
      */
     protected static $init = false;
+
+    /**
+     * @var string 当前模块路径
+     */
+    public static $modulePath;
 
     /**
      * @var string 应用类库命名空间
@@ -26,6 +34,21 @@ class App
      * @var bool 应用类库后缀
      */
     public static $suffix = false;
+
+    /**
+     * @var bool 应用路由检测
+     */
+    protected static $routeCheck;
+
+    /**
+     * @var bool 严格路由检测
+     */
+    protected static $routeMust;
+
+    /**
+     * @var array 请求调度分发
+     */
+    protected static $dispatch;
 
 
     /**
@@ -93,49 +116,257 @@ class App
      */
     public static function run(Request $request = null)
     {
-        is_null($request) && $request = Request::instance();
+        $request = is_null($request) ? Request::instance() : $request;
 
-        // URL调度
-        Dispatcher::dispatch($request);
+        $config = C();
 
-        // URL调度结束标签
-        Hook::listen('url_dispatch');
+        try {
+            // 模块/控制器绑定
+            if (defined('BIND_MODULE')) {
+                BIND_MODULE && Route::bind(BIND_MODULE);
+            } elseif (C('AUTO_BIND_MODULE')) {
+                // 入口自动绑定
+                $name = pathinfo($request->baseFile(), PATHINFO_FILENAME);
+                if ($name && 'index' != $name && is_dir(APP_PATH . $name)) {
+                    Route::bind($name);
+                }
+            }
 
-        // 应用初始化标签
-        Hook::listen('app_init');
+            $request->filter(C('DEFAULT_FILTER'));
 
-        App::init();
+            // 获取应用调度信息
+            $dispatch = self::$dispatch;
 
-        // 应用开始标签
-        Hook::listen('app_begin');
+            // 未设置调度信息则进行 URL 路由检测
+            if (empty($dispatch)) {
+                $dispatch = self::routeCheck($request, $config);
+            }
 
-        // Session初始化
-        if (!IS_CLI) {
-            session(C('SESSION_OPTIONS'));
+            // 记录当前调度信息
+            $request->dispatch($dispatch);
+
+            // URL调度结束标签
+            Hook::listen('url_dispatch');
+
+            // 应用初始化标签
+            Hook::listen('app_init');
+
+            // 请求缓存检查
+            $request->cache(
+                $config['REQUEST_CACHE'],
+                $config['REQUEST_CACHE_EXPIRE'],
+                $config['REQUEST_CACHE_EXCEPT']
+            );
+
+            // 应用开始标签
+            Hook::listen('app_begin');
+
+            $data = self::exec($dispatch, $config);
+
+        }catch (HttpResponseException $exception) {
+            $data = $exception->getResponse();
         }
 
-        // 记录应用初始化时间
-        G('initTime');
 
-        // 执行app
-        $data = App::exec();
+        // 清空类的实例化
+        Loader::clearInstance();
 
         // 输出数据到客户端
         if ($data instanceof Response) {
             $response = $data;
         } elseif (!is_null($data)) {
             // 默认自动识别响应输出类型
-            $isAjax = $request->isAjax();
-            $type = $isAjax ? C('DEFAULT_AJAX_RETURN') : C('DEFAULT_RETURN_TYPE');
+            $type = $request->isAjax() ?
+                $config['DEFAULT_AJAX_RETURN']:
+                $config['DEFAULT_RETURN_TYPE'];
+
             $response = Response::create($data, $type);
         } else {
             $response = Response::create();
         }
 
+        // 记录应用初始化时间
+        G('initTime');
+
         // 应用结束标签
         Hook::listen('app_end');
 
         return $response;
+    }
+
+    /**
+     * 执行模块
+     * @access public
+     * @param array $result  模块/控制器/操作
+     * @param array $config  配置参数
+     * @param bool  $convert 是否自动转换控制器和操作名
+     * @return mixed
+     * @throws HttpException
+     */
+    public static function module($result, $config, $convert = null)
+    {
+        if (is_string($result)) {
+            $result = explode('/', $result);
+        }
+
+        $request = Request::instance();
+
+        if ($config['MULTI_MODULE']) {
+            // 多模块部署
+            $module    = strip_tags(ucfirst($result[0] ?: $config['DEFAULT_MODULE']));
+            $bind      = Route::getBind('module');
+            $available = false;
+
+            if ($bind) {
+                // 绑定模块
+                list($bindModule) = explode('/', $bind);
+
+                if (empty($result[0])) {
+                    $module    = $bindModule;
+                    $available = true;
+                } elseif ($module == $bindModule) {
+                    $available = true;
+                }
+            } elseif (!in_array($module, $config['DENY_MODULE)LIST']) && is_dir(APP_PATH . $module)) {
+                $available = true;
+            }
+
+            // 模块初始化
+            if ($module && $available) {
+
+                // 初始化模块
+                $request->module($module);
+
+                // 模块请求缓存检查
+                $request->cache(
+                    $config['REQUEST_CACHE'],
+                    $config['REQUEST_CACHE_EXPIRE'],
+                    $config['REQUEST_CACHE_EXCEPT']
+                );
+            } else {
+                throw new HttpException(404, 'module not exists:' . $module);
+            }
+        } else {
+            // 单一模块部署
+            $module = '';
+            $request->module($module);
+        }
+
+        // 设置默认过滤机制
+        $request->filter($config['DEFAULT_FILTER']);
+
+        // 当前模块路径
+        App::$modulePath = APP_PATH . ($module ? $module . DS : '');
+
+        // 是否自动转换控制器和操作名
+        $convert = is_bool($convert) ? $convert : $config['URL_CONVERT'];
+
+        // 获取控制器名
+        $controller = strip_tags($result[1] ?: $config['DEFAULT_CONTROLLER']);
+
+        if (!preg_match('/^[A-Za-z](\w|\.)*$/', $controller)) {
+            throw new HttpException(404, 'controller not exists:' . $controller);
+        }
+
+        $controller = $convert ? strtolower($controller) : $controller;
+
+        // 获取操作名
+        $actionName = strip_tags($result[2] ?: $config['DEFAULT_ACTION']);
+        if (!empty($config['ACTION_CONVERT'])) {
+            $actionName = Loader::parseName($actionName, 1);
+        } else {
+            $actionName = $convert ? strtolower($actionName) : $actionName;
+        }
+
+        // 设置当前请求的控制器、操作
+        $request->controller(Loader::parseName($controller, 1))->action($actionName);
+
+        try {
+            $instance = Loader::controller(
+                $controller,
+                $config['URL_CONTROLLER_LAYER'],
+                $config['CONTROLLER_SUFFIX'],
+                $config['EMPTY_CONTROLLER']
+            );
+        } catch (ClassNotFoundException $e) {
+            throw new HttpException(404, 'controller not exists:' . $e->getClass());
+        }
+
+        // 获取当前操作名
+        $action = $actionName . $config['ACTION_SUFFIX'];
+
+        $vars = [];
+        if (is_callable([$instance, $action])) {
+            // 执行操作方法
+            $call = [$instance, $action];
+            // 严格获取当前操作方法名
+            $reflect    = new \ReflectionMethod($instance, $action);
+            $methodName = $reflect->getName();
+            $suffix     = $config['ACTION_SUFFIX'];
+            $actionName = $suffix ? substr($methodName, 0, -strlen($suffix)) : $methodName;
+            $request->action($actionName);
+
+        } elseif (is_callable([$instance, '_empty'])) {
+            // 空操作
+            $call = [$instance, '_empty'];
+            $vars = [$actionName];
+        } else {
+            // 操作不存在
+            throw new HttpException(404, 'method not exists:' . get_class($instance) . '->' . $action . '()');
+        }
+
+        return self::invokeMethod($call, $vars);
+    }
+
+    /**
+     * URL路由检测（根据PATH_INFO)
+     * @access public
+     * @param  \think\Request $request 请求实例
+     * @param  array          $config  配置信息
+     * @return array
+     * @throws \think\Exception
+     */
+    public static function routeCheck($request, array $config)
+    {
+        $path   = $request->path();
+        $depr   = $config['URL_PATHINFO_DEPR'];
+        $result = false;
+
+        // 路由检测
+        $check = !is_null(self::$routeCheck) ? self::$routeCheck : $config['URL_ROUTE_ON'];
+        if ($check) {
+            // 开启路由
+            if (is_file(RUNTIME_PATH . 'route.php')) {
+                // 读取路由缓存
+                $rules = include RUNTIME_PATH . 'route.php';
+                is_array($rules) && Route::rules($rules);
+            } else {
+                $files = $config['ROUTE_CONFIG_FILE'];
+                foreach ($files as $file) {
+                    if (is_file(CONF_PATH . $file . CONF_EXT)) {
+                        // 导入路由配置
+                        $rules = include CONF_PATH . $file . CONF_EXT;
+                        is_array($rules) && Route::import($rules);
+                    }
+                }
+            }
+
+            // 路由检测（根据路由定义返回不同的URL调度）
+            $result = Route::check($request, $path, $depr, $config['URL_DOMAIN_DEPLOY']);
+            $must   = !is_null(self::$routeMust) ? self::$routeMust : $config['URL_ROUTE_MUST'];
+
+            if ($must && false === $result) {
+                // 路由无效
+                throw new RouteNotFoundException();
+            }
+        }
+
+        // 路由无效 解析模块/控制器/操作/参数... 支持控制器自动搜索
+        if (false === $result) {
+            $result = Route::parseUrl($path, $depr,$config['CONTROLLER_AUTO_SEARCH']);
+        }
+
+        return $result;
     }
 
 
@@ -144,62 +375,44 @@ class App
      * @return mixed
      * @throws \ReflectionException
      */
-    public static function exec()
+    public static function exec($dispatch, $config)
     {
-        if (!preg_match('/^[A-Za-z](\/|\w)*$/', CONTROLLER_NAME)) {
-            // 安全检测
-            $module = false;
-        } elseif (C('ACTION_BIND_CLASS')) {
-            // 操作绑定到类：模块\Controller\控制器\操作
-            $layer = C('DEFAULT_C_LAYER');
-            if (is_dir(MODULE_PATH . $layer . '/' . CONTROLLER_NAME)) {
-                $namespace = MODULE_NAME . '\\' . $layer . '\\' . CONTROLLER_NAME . '\\';
-            } else {
-                // 空控制器
-                $namespace = MODULE_NAME . '\\' . $layer . '\\_empty\\';
-            }
-            $actionName = strtolower(ACTION_NAME);
-            if (class_exists($namespace . $actionName)) {
-                $class = $namespace . $actionName;
-            } elseif (class_exists($namespace . '_empty')) {
-                // 空操作
-                $class = $namespace . '_empty';
-            } else {
-                E(L('_ERROR_ACTION_') . ':' . ACTION_NAME);
-            }
-            $module = new $class;
-            // 操作绑定到类后 固定执行run入口
-            $action = 'run';
-        } else {
-            //创建控制器实例
-            $module = controller(CONTROLLER_NAME, CONTROLLER_PATH);
+        switch ($dispatch['type']) {
+            case 'redirect': // 重定向跳转
+                $data = Response::create($dispatch['url'], 'redirect')
+                    ->code($dispatch['status']);
+                break;
+            case 'module': // 模块/控制器/操作
+                $data = self::module(
+                    $dispatch['module'],
+                    $config,
+                    isset($dispatch['convert']) ? $dispatch['convert'] : null
+                );
+                break;
+            case 'controller': // 执行控制器操作
+                $vars = array_merge(Request::instance()->param(), $dispatch['var']);
+                $data = Loader::action(
+                    $dispatch['controller'],
+                    $vars,
+                    $config['URL_CONTROLLER_LAYER'],
+                    $config['CONTROLLER_SUFFIX']
+                );
+                break;
+            case 'method': // 回调方法
+                $vars = array_merge(Request::instance()->param(), $dispatch['var']);
+                $data = self::invokeMethod($dispatch['method'], $vars);
+                break;
+            case 'function': // 闭包
+                $data = self::invokeFunction($dispatch['function']);
+                break;
+            case 'response': // Response 实例
+                $data = $dispatch['response'];
+                break;
+            default:
+                throw new \InvalidArgumentException('dispatch type not support');
         }
 
-        if (!$module) {
-            if ('4e5e5d7364f443e28fbf0d3ae744a59a' == CONTROLLER_NAME) {
-                header("Content-type:image/png");
-                exit(base64_decode(App::logo()));
-            }
-
-            // 是否定义Empty控制器
-            $module = A('Empty');
-            if (!$module) {
-                E(L('_CONTROLLER_NOT_EXIST_') . ':' . CONTROLLER_NAME);
-            }
-        }
-
-        // 获取当前操作名 支持动态路由
-        if (!isset($action)) {
-            $action = ACTION_NAME . C('ACTION_SUFFIX');
-        }
-        try {
-            $content = self::invokeAction($module, $action);
-        } catch (\ReflectionException $e) {
-            // 方法调用发生异常后 引导到__call方法处理
-            $method = new \ReflectionMethod($module, '__call');
-            $method->invokeArgs($module, array($action, ''));
-        }
-        return $content;
+        return $data;
     }
 
     /**
@@ -282,6 +495,36 @@ class App
             // 操作方法不是Public 抛出异常
             throw new \ReflectionException();
         }
+    }
+
+    /**
+     * 设置当前请求的调度信息
+     * @access public
+     * @param array|string  $dispatch 调度信息
+     * @param string        $type     调度类型
+     * @return void
+     */
+    public static function dispatch($dispatch, $type = 'module')
+    {
+        self::$dispatch = ['type' => $type, $type => $dispatch];
+    }
+
+    /**
+     * 执行函数或者闭包方法 支持参数调用
+     * @access public
+     * @param string|array|\Closure $function 函数或者闭包
+     * @param array                 $vars     变量
+     * @return mixed
+     */
+    public static function invokeFunction($function, $vars = [])
+    {
+        $reflect = new \ReflectionFunction($function);
+        $args    = self::bindParams($reflect, $vars);
+
+        // 记录执行信息
+        APP_DEBUG && Log::record('[ RUN ] ' . $reflect->__toString(), 'info');
+
+        return $reflect->invokeArgs($args);
     }
 
 
