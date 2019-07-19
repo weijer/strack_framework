@@ -9,14 +9,6 @@
             "email": "weiwei163@foxmail.com"
         }
     ],
-    "require": {
-      "ext-pdo": "*",
-      "ext-imagick": "*",
-      "ext-redis": "*",
-      "ext-json": "*",
-      "ext-fileinfo": "*",
-      "ext-iconv": "*"
-    },
     "autoload": {
         "files": [
             "helper.php"
