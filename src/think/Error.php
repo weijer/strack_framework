@@ -106,12 +106,13 @@ class Error
         if (!$handle) {
             // 异常处理handle
             $class = C('EXCEPTION_HANDLE');
-            if ($class && class_exists($class) && is_subclass_of($class, "\\think\\exception\\handle")) {
+            if ($class && class_exists($class) && is_subclass_of($class, "\\think\\exception\\Handle")) {
                 $handle = new $class;
             } else {
                 $handle = new Handle;
             }
         }
+
         return $handle;
     }
 }

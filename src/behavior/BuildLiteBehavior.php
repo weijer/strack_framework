@@ -14,6 +14,7 @@ namespace behavior;
 // 可以替换框架入口文件运行
 // 建议绑定位置app_init
 use think\Hook as Hook;
+
 class BuildLiteBehavior
 {
     public function run(&$params)
@@ -27,7 +28,7 @@ class BuildLiteBehavior
             return;
         }
 
-        $defs    = get_defined_constants(true);
+        $defs = get_defined_constants(true);
         $content = 'namespace {$GLOBALS[\'_beginTime\'] = microtime(TRUE);';
         if (MEMORY_LIMIT_ON) {
             $content .= '$GLOBALS[\'_startUseMems\'] = memory_get_usage();';
@@ -39,24 +40,24 @@ class BuildLiteBehavior
 
         // 读取编译列表文件
         $filelist = is_file(CONF_PATH . 'lite.php') ?
-        include CONF_PATH . 'lite.php' :
-        array(
-            THINK_PATH . 'helper.php',
-            APP_PATH . 'helper.php',
-            CORE_PATH . 'Think' . EXT,
-            CORE_PATH . 'Hook' . EXT,
-            CORE_PATH . 'App' . EXT,
-            CORE_PATH . 'Log' . EXT,
-            CORE_PATH . 'log/driver/File' . EXT,
-            CORE_PATH . 'Route' . EXT,
-            CORE_PATH . 'Controller' . EXT,
-            CORE_PATH . 'View' . EXT,
-            CORE_PATH . 'Storage' . EXT,
-            CORE_PATH . 'storage/driver/File' . EXT,
-            CORE_PATH . 'Exception' . EXT,
-            BEHAVIOR_PATH . 'ParseTemplateBehavior' . EXT,
-            BEHAVIOR_PATH . 'ContentReplaceBehavior' . EXT,
-        );
+            include CONF_PATH . 'lite.php' :
+            array(
+                THINK_PATH . 'helper.php',
+                APP_PATH . 'helper.php',
+                CORE_PATH . 'Think' . EXT,
+                CORE_PATH . 'Hook' . EXT,
+                CORE_PATH . 'App' . EXT,
+                CORE_PATH . 'Log' . EXT,
+                CORE_PATH . 'log/driver/File' . EXT,
+                CORE_PATH . 'Route' . EXT,
+                CORE_PATH . 'Controller' . EXT,
+                CORE_PATH . 'View' . EXT,
+                CORE_PATH . 'Storage' . EXT,
+                CORE_PATH . 'storage/driver/File' . EXT,
+                CORE_PATH . 'Exception' . EXT,
+                BEHAVIOR_PATH . 'ParseTemplateBehavior' . EXT,
+                BEHAVIOR_PATH . 'ContentReplaceBehavior' . EXT,
+            );
 
         // 编译文件
         foreach ($filelist as $file) {

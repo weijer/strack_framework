@@ -12,9 +12,9 @@
 namespace think\exception;
 
 use Exception;
-use think\Console\Output;
+use think\console\Output;
 use think\Log;
-use think\response;
+use think\Response;
 
 class Handle
 {

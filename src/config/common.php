@@ -15,8 +15,8 @@
 return array(
     // 配置文件
     'config' => array(
-        THINK_PATH . 'config/convention.php', // 系统惯例配置
-        CONF_PATH . 'config' . CONF_EXT, // 应用公共配置
+        CONF_PATH . 'convention.php', // 系统惯例配置
+        COMMON_PATH . 'config/config' . CONF_EXT, // 应用公共配置
     ),
 
     // 公共函数
@@ -53,19 +53,19 @@ return array(
     // 行为扩展定义
     'tags' => [
         'app_init' => [
-            'Behavior\BuildLiteBehavior', // 生成运行Lite文件
+            'behavior\BuildLiteBehavior', // 生成运行Lite文件
         ],
         'app_begin' => [
-            'Behavior\CheckLangBehavior'
+            'behavior\CheckLangBehavior'
         ],
         'event_log' => [
-            'Behavior\EventBehavior', // 写入EventLog
+            'behavior\EventBehavior', // 写入EventLog
         ],
         'message' => [
-            'Behavior\MessageBehavior', // 处理消息
+            'behavior\MessageBehavior', // 处理消息
         ],
         'auth' => [
-            'Behavior\AuthBehavior', // 处理权限
+            'behavior\AuthBehavior', // 处理权限
        ]
     ],
 );

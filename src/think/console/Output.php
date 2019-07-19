@@ -13,7 +13,7 @@ namespace think\console;
 
 use Exception;
 use think\console\output\Ask;
-use think\console\output\descriptor;
+use think\console\output\Descriptor;
 use think\console\output\driver\Buffer;
 use think\console\output\driver\Console;
 use think\console\output\driver\Nothing;
