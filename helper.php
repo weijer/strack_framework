@@ -13,13 +13,13 @@
  * Think 系统函数库
  */
 
-use Think\Loader;
-use Think\Request;
-use Think\Response;
-use Think\Log;
-use Think\Cache;
-use Think\Session;
-use Think\Cookie;
+use think\Loader;
+use think\Request;
+use think\Response;
+use think\Log;
+use think\Cache;
+use think\Session;
+use think\Cookie;
 
 if (!function_exists('C')) {
     /**
@@ -73,7 +73,7 @@ if (!function_exists('load_config')) {
      * @param string $file 配置文件名
      * @param string $parse 配置解析方法 有些格式需要用户自己解析
      * @return array|bool|mixed
-     * @throws \Think\Exception
+     * @throws \think\Exception
      */
     function load_config($file, $parse = CONF_PARSE)
     {
@@ -150,12 +150,12 @@ if (!function_exists('E')) {
      * 抛出异常处理
      * @param string $msg 异常消息
      * @param integer $code 异常代码 默认为0
-     * @throws Think\Exception
+     * @throws think\Exception
      * @return void
      */
     function E($msg, $code = 0)
     {
-        throw new Think\Exception($msg, $code);
+        throw new think\Exception($msg, $code);
     }
 }
 
@@ -169,7 +169,7 @@ if (!function_exists('throw_strack_exception')) {
      */
     function throw_strack_exception($msg, $code = 404, $data = [], $type = 'json')
     {
-        throw new Think\Exception\StrackException($code, $msg, $data, $type);
+        throw new think\exception\StrackException($code, $msg, $data, $type);
     }
 }
 
@@ -240,7 +240,7 @@ if (!function_exists('L')) {
         if (empty($name)) {
             return $_lang;
         }
-        
+
         // 判断语言获取(或设置)
         // 若不存在,直接返回全大写$name
         if (is_string($name)) {
@@ -274,7 +274,7 @@ if (!function_exists('trace')) {
      * @param string $level
      * @return array
      */
-    function trace($log = '[think]', $level = Think\Log::INFO)
+    function trace($log = '[think]', $level = think\Log::INFO)
     {
         if ('[think]' === $log) {
             return Log::getLog();
@@ -582,9 +582,9 @@ if (!function_exists('model')) {
 
     /**
      * 实例化Model
-     * @param string    $name Model名称
-     * @param string    $layer 业务层名称
-     * @param bool      $appendSuffix 是否添加类名后缀
+     * @param string $name Model名称
+     * @param string $layer 业务层名称
+     * @param bool $appendSuffix 是否添加类名后缀
      * @return \think\Model
      */
     function model($name = '', $layer = 'model', $appendSuffix = false)
@@ -599,7 +599,7 @@ if (!function_exists('M')) {
      * @param string $name Model名称 支持指定基础模型 例如 MongoModel:User
      * @param string $tablePrefix 表前缀
      * @param mixed $connection 数据库连接信息
-     * @return Think\Model
+     * @return think\Model
      */
     function M($name = '', $tablePrefix = '', $connection = '')
     {
@@ -607,7 +607,7 @@ if (!function_exists('M')) {
         if (strpos($name, ':')) {
             list($class, $name) = explode(':', $name);
         } else {
-            $class = 'Think\\Model';
+            $class = 'think\\Model';
         }
         $guid = (is_array($connection) ? implode('', $connection) : $connection) . $tablePrefix . $name . '_' . $class;
         if (!isset($_model[$guid])) {
@@ -621,9 +621,9 @@ if (!function_exists('M')) {
 if (!function_exists('controller')) {
     /**
      * 实例化控制器 格式：[模块/]控制器
-     * @param string    $name 资源地址
-     * @param string    $layer 控制层名称
-     * @param bool      $appendSuffix 是否添加类名后缀
+     * @param string $name 资源地址
+     * @param string $layer 控制层名称
+     * @param bool $appendSuffix 是否添加类名后缀
      * @return \think\Controller
      */
     function controller($name, $layer = 'controller', $appendSuffix = false)
@@ -635,10 +635,10 @@ if (!function_exists('controller')) {
 if (!function_exists('action')) {
     /**
      * 调用模块的操作方法 参数格式 [模块/控制器/]操作
-     * @param string        $url 调用地址
-     * @param string|array  $vars 调用参数 支持字符串和数组
-     * @param string        $layer 要调用的控制层名称
-     * @param bool          $appendSuffix 是否添加类名后缀
+     * @param string $url 调用地址
+     * @param string|array $vars 调用参数 支持字符串和数组
+     * @param string $layer 要调用的控制层名称
+     * @param bool $appendSuffix 是否添加类名后缀
      * @return mixed
      */
     function action($url, $vars = [], $layer = 'controller', $appendSuffix = false)
@@ -681,7 +681,7 @@ if (!function_exists('tag')) {
      */
     function tag($tag, &$params = null)
     {
-        \Think\Hook::listen($tag, $params);
+        \think\Hook::listen($tag, $params);
     }
 }
 
@@ -698,7 +698,7 @@ if (!function_exists('B')) {
         if ('' == $tag) {
             $name .= 'Behavior';
         }
-        return \Think\Hook::exec($name, $tag, $params);
+        return \think\Hook::exec($name, $tag, $params);
     }
 }
 
@@ -1121,10 +1121,10 @@ if (!function_exists('F')) {
                     return false; // TODO
                 } else {
                     unset($_cache[$name]);
-                    return Think\Storage::unlink($filename, 'F');
+                    return think\Storage::unlink($filename, 'F');
                 }
             } else {
-                Think\Storage::put($filename, serialize($value), 'F');
+                think\Storage::put($filename, serialize($value), 'F');
                 // 缓存数据
                 $_cache[$name] = $value;
                 return null;
@@ -1135,8 +1135,8 @@ if (!function_exists('F')) {
             return $_cache[$name];
         }
 
-        if (Think\Storage::has($filename, 'F')) {
-            $value = unserialize(Think\Storage::read($filename, 'F'));
+        if (think\Storage::has($filename, 'F')) {
+            $value = unserialize(think\Storage::read($filename, 'F'));
             $_cache[$name] = $value;
         } else {
             $value = false;
@@ -1225,7 +1225,7 @@ if (!function_exists('session')) {
      * @param mixed $value session值
      * @return mixed
      */
-    function session($name = '', $value = '',  $prefix = null)
+    function session($name = '', $value = '', $prefix = null)
     {
         if (is_array($name)) {
             // 初始化
@@ -1279,7 +1279,7 @@ if (!function_exists('load_ext_file')) {
     /**
      * 加载动态扩展文件
      * @var string $path 文件路径
-     * @throws \Think\Exception
+     * @throws \think\Exception
      */
     function load_ext_file($path)
     {
@@ -1300,7 +1300,7 @@ if (!function_exists('load_ext_file')) {
             }
 
             foreach ($configs as $key => $config) {
-                $file = is_file($config) ? $config : $path . 'Conf/' . $config . CONF_EXT;
+                $file = is_file($config) ? $config : $path . 'config/' . $config . CONF_EXT;
                 if (is_file($file)) {
                     is_numeric($key) ? C(load_Config($file)) : C($key, load_Config($file));
                 }
@@ -1481,5 +1481,20 @@ if (!function_exists('str_replace_once')) {
 
         return substr_replace($haystack, $replace, $pos, strlen($needle));
 
+    }
+}
+
+if (!function_exists('un_camelize')) {
+    /**
+     * 驼峰命名转下划线命名
+     * 思路:
+     * 小写和大写紧挨一起的地方,加上分隔符,然后全部转小写
+     * @param $camelCaps
+     * @param string $separator
+     * @return string
+     */
+    function un_camelize($camelCaps, $separator = '_')
+    {
+        return strtolower(preg_replace('/([a-z])([A-Z])/', "$1" . $separator . "$2", $camelCaps));
     }
 }
