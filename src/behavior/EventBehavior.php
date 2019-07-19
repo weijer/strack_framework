@@ -33,6 +33,6 @@ class EventBehavior
 //        $eventLogService = new EventLogService();
 //        $eventLogService->addInsideEventLog($eventData["event_from"], $eventData["params"], $eventData["user_info"]);
 
-        \Queue\Controller\JobsController::push('Event', 'event', '', ["event_data" => json_encode($eventData)]);
+        \queue\controller\JobsController::push('Event', 'event', '', ["event_data" => json_encode($eventData)]);
     }
 }
