@@ -32,7 +32,7 @@ class [CONTROLLER]Controller extends Controller
     protected static $model = '<?php
 namespace [MODULE]\Model;
 
-use Think\Model;
+use think\Model;
 
 class [MODEL]Model extends Model
 {
