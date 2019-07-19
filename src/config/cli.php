@@ -15,8 +15,8 @@
 return array(
     // 配置文件
     'config' => array(
-        THINK_PATH . 'config/convention.php', // 系统惯例配置
-        CONF_PATH . 'config' . CONF_EXT, // 应用公共配置
+        CONF_PATH . 'config/convention.php', // 系统惯例配置
+        COMMON_PATH . 'config/config' . CONF_EXT, // 应用公共配置
     ),
 
     // 公共函数
@@ -52,7 +52,7 @@ return array(
     // 行为扩展定义
     'tags' => array(
         'app_init' => array(
-            'Behavior\BuildLiteBehavior', // 生成运行Lite文件
+            'behavior\BuildLiteBehavior', // 生成运行Lite文件
         )
     ),
 );

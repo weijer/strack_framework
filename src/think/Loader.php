@@ -241,7 +241,6 @@ class Loader
             C(load_config(CONF_PATH . 'config_' . APP_MODE . CONF_EXT));
         }
 
-
         // 加载模式行为定义
         if (isset($mode['tags'])) {
             Hook::import(is_array($mode['tags']) ? $mode['tags'] : include $mode['tags']);

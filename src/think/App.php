@@ -221,7 +221,7 @@ class App
 
         if ($config['MULTI_MODULE']) {
             // 多模块部署
-            $module = strip_tags(ucfirst($result[0] ?: $config['DEFAULT_MODULE']));
+            $module = strip_tags($result[0] ?: $config['DEFAULT_MODULE']);
             $bind = Route::getBind('module');
             $available = false;
 
@@ -235,7 +235,7 @@ class App
                 } elseif ($module == $bindModule) {
                     $available = true;
                 }
-            } elseif (!in_array($module, $config['DENY_MODULE)LIST']) && is_dir(APP_PATH . $module)) {
+            } elseif (!in_array($module, $config['DENY_MODULE_LIST']) && is_dir(APP_PATH . $module)) {
                 $available = true;
             }
 

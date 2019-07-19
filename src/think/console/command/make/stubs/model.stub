@@ -2,7 +2,7 @@
 
 namespace {%namespace%};
 
-use Think\Model;
+use think\Model;
 
 class {%className%} extends Model
 {

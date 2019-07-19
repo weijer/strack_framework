@@ -8,10 +8,10 @@
 // +----------------------------------------------------------------------
 // | Author: liu21st <liu21st@gmail.com>
 // +----------------------------------------------------------------------
-namespace Think\model;
+namespace think\model;
 
-use Think\Model;
-use Think\Hook;
+use think\Model;
+use think\Hook;
 
 /**
  * ThinkPHP关联模型扩展

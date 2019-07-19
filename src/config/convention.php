@@ -31,11 +31,11 @@ return array(
     'MODULE_DENY_LIST'       => array('common', 'runtime'),
     'CONTROLLER_LEVEL'       => 1,
     'AUTO_BIND_MODULE'       => false,
-    'APP_AUTOLOAD_LAYER'     => 'Controller,Model', // 自动加载的应用类库层 关闭APP_USE_NAMESPACE后有效
+    'APP_AUTOLOAD_LAYER'     => 'controller,model', // 自动加载的应用类库层 关闭APP_USE_NAMESPACE后有效
     'APP_AUTOLOAD_PATH'      => '', // 自动加载的路径 关闭APP_USE_NAMESPACE后有效
 
     // 默认的访问控制器层
-    'URL_CONTROLLER_LAYER'   => 'Controller',
+    'URL_CONTROLLER_LAYER'   => 'controller',
 
     /* Cookie设置 */
     'COOKIE_EXPIRE'          => 0, // Cookie有效期
@@ -46,9 +46,9 @@ return array(
     'COOKIE_HTTPONLY'        => '', // Cookie httponly设置
 
     /* 默认设定 */
-    'DEFAULT_M_LAYER'        => 'Model', // 默认的模型层名称
-    'DEFAULT_C_LAYER'        => 'Controller', // 默认的控制器层名称
-    'DEFAULT_V_LAYER'        => 'View', // 默认的视图层名称
+    'DEFAULT_M_LAYER'        => 'model', // 默认的模型层名称
+    'DEFAULT_C_LAYER'        => 'controller', // 默认的控制器层名称
+    'DEFAULT_V_LAYER'        => 'view', // 默认的视图层名称
     'DEFAULT_LANG'           => 'en-us', // 默认语言
     'DEFAULT_THEME'          => '', // 默认模板主题名称
     'DEFAULT_MODULE'         => 'home', // 默认模块
@@ -104,7 +104,7 @@ return array(
     'SHOW_ERROR_MSG'         => false, // 显示错误信息
     'TRACE_MAX_RECORD'       => 100, // 每个级别的错误信息 最大记录数
     'EXCEPTION_HANDLE'       => '\\app\\common\\exception\\Http',
-    'EXCEPTION_TMPL'         => THINK_PATH . 'tpl' . DS . 'think_exception.tpl',
+    'EXCEPTION_TMPL'         => LIB_PATH . 'tpl' . DS . 'think_exception.tpl',
 
     /* 日志设置 */
     'LOG_RECORD'             => false, // 默认不记录日志

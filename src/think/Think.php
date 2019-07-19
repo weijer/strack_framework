@@ -182,7 +182,7 @@ class Think
             }
         }
         // 包含异常页面模板
-        $exceptionFile = C('TMPL_EXCEPTION_FILE', null, THINK_PATH . 'Tpl/think_exception.tpl');
+        $exceptionFile = C('TMPL_EXCEPTION_FILE', null, LIB_PATH . 'Tpl/think_exception.tpl');
         include $exceptionFile;
         exit;
     }
