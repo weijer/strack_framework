@@ -118,7 +118,7 @@ class ReadHtmlCacheBehavior
     {
         if (!is_file($cacheFile) && 'sae' != APP_MODE) {
             return false;
-        } elseif (filemtime(\think\Think::instance('Think\View')->parseTemplate()) > Storage::get($cacheFile, 'mtime', 'html')) {
+        } elseif (filemtime(\think\Think::instance('think\View')->parseTemplate()) > Storage::get($cacheFile, 'mtime', 'html')) {
             // 模板文件如果更新静态文件需要更新
             return false;
         } elseif (!is_numeric($cacheTime) && function_exists($cacheTime)) {

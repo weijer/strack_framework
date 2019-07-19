@@ -10,7 +10,7 @@
 // +----------------------------------------------------------------------
 namespace behavior;
 
-use Common\Service\MessageService;
+use common\service\MessageService;
 
 /**
  * 行为扩展：处理event

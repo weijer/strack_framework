@@ -10,7 +10,7 @@
 // +----------------------------------------------------------------------
 namespace behavior;
 
-use Common\Middleware\AuthMiddleware;
+use common\middleware\AuthMiddleware;
 
 /**
  * 行为扩展：处理token权限验证
