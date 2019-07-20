@@ -15,7 +15,7 @@
 return array(
     // 配置文件
     'config' => array(
-        CONF_PATH . 'config/convention.php', // 系统惯例配置
+        CONF_PATH . 'convention.php', // 系统惯例配置
         COMMON_PATH . 'config/config' . CONF_EXT, // 应用公共配置
     ),
 
