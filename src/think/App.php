@@ -113,7 +113,7 @@ class App
     /**
      * 运行应用实例 入口文件使用的快捷方法
      * @param Request|null $request
-     * @return mixed|response
+     * @return array|Response
      * @throws Exception
      * @throws \ReflectionException
      */
@@ -122,6 +122,8 @@ class App
         $request = is_null($request) ? Request::instance() : $request;
 
         $config = C();
+
+        $checkCorsResult = [];
 
         try {
             // 模块/控制器绑定
@@ -167,10 +169,12 @@ class App
             // 处理跨域
             $checkCorsResult = Cors::check($request);
             if ($checkCorsResult instanceof Response) {
+                // Options请求直接返回
                 $data = $checkCorsResult;
             } else {
                 $data = self::exec($dispatch, $config);
             }
+
         } catch (HttpResponseException $exception) {
             $data = $exception->getResponse();
         }
@@ -181,16 +185,16 @@ class App
 
         // 输出数据到客户端
         if ($data instanceof Response) {
-            $response = $data;
+            $response = $data->header($checkCorsResult);
         } elseif (!is_null($data)) {
             // 默认自动识别响应输出类型
             $type = $request->isAjax() ?
                 $config['DEFAULT_AJAX_RETURN'] :
                 $config['DEFAULT_RETURN_TYPE'];
 
-            $response = Response::create($data, $type);
+            $response = Response::create($data, $type)->header($checkCorsResult);
         } else {
-            $response = Response::create();
+            $response = Response::create()->header($checkCorsResult);
         }
 
         // 记录应用初始化时间
