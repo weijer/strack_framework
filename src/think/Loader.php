@@ -264,7 +264,7 @@ class Loader
         L(include LIB_PATH . 'lang/' . strtolower(C('DEFAULT_LANG')) . '.php');
 
         // 调试模式加载系统默认的配置文件
-        C(include THINK_PATH . 'config/debug.php');
+        C(include CONF_PATH . 'debug.php');
 
         // 读取应用调试配置文件
         if (is_file(CONF_PATH . 'debug' . CONF_EXT)) {
