@@ -18,8 +18,7 @@ class Cors
 
     /**
      * @param Request $request
-     * @param Request $request
-     * @return string|Response
+     * @return array|Response
      */
     public static function check(Request $request)
     {
@@ -32,6 +31,8 @@ class Cors
         if ($request->method(true) == 'OPTIONS') {
             return Response::create()->code(204)->header($header);
         }
-        return '';
+
+        return $header;
     }
+
 }
