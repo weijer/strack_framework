@@ -123,7 +123,7 @@ class App
 
         $config = C();
 
-        $checkCorsResult = [];
+        $header = [];
 
         try {
             // 模块/控制器绑定
@@ -172,6 +172,7 @@ class App
                 // Options请求直接返回
                 $data = $checkCorsResult;
             } else {
+                $header = $checkCorsResult;
                 $data = self::exec($dispatch, $config);
             }
 
@@ -185,16 +186,16 @@ class App
 
         // 输出数据到客户端
         if ($data instanceof Response) {
-            $response = $data->header($checkCorsResult);
+            $response = $data->header($header);
         } elseif (!is_null($data)) {
             // 默认自动识别响应输出类型
             $type = $request->isAjax() ?
                 $config['DEFAULT_AJAX_RETURN'] :
                 $config['DEFAULT_RETURN_TYPE'];
 
-            $response = Response::create($data, $type)->header($checkCorsResult);
+            $response = Response::create($data, $type)->header($header);
         } else {
-            $response = Response::create()->header($checkCorsResult);
+            $response = Response::create()->header($header);
         }
 
         // 记录应用初始化时间
