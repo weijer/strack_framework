@@ -1094,7 +1094,7 @@ class Request
      */
     public function parserFilter(&$data)
     {
-        if (array_key_exists("filter", $data)) {
+        if (array_key_exists("param", $data) && array_key_exists("filter", $data['param'])) {
             array_walk_recursive($data, [$this, 'parserFilterCondition']);
         }
         return $data;
@@ -1119,6 +1119,7 @@ class Request
             '-not-bw' => 'NOT BETWEEN', // 不在之间
             '-in' => 'IN', // 在里面
             '-not-in' => 'NOT IN', // 不在里面
+            '-logic' => '_logic'
         ];
         if (array_key_exists($val, $map)) {
             $val = $map[$val];

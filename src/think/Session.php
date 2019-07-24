@@ -16,7 +16,7 @@ use think\exception\ClassNotFoundException;
 class Session
 {
     protected static $prefix = '';
-    protected static $init   = null;
+    protected static $init = null;
 
     /**
      * 设置或者获取session作用域（前缀）
@@ -43,17 +43,18 @@ class Session
     {
         if (empty($config)) {
             $config = [
-                'prefix'         => C('SESSION_PREFIX'),
-                'type'           => C('SESSION_TYPE'),
-                'auto_start'     => C('SESSION_AUTO_START')
+                'prefix' => C('SESSION_PREFIX'),
+                'options' => C('SESSION_OPTIONS'),
+                'type' => C('SESSION_TYPE'),
+                'auto_start' => C('SESSION_AUTO_START')
             ];
         }
 
         // 记录初始化信息
         APP_DEBUG && Log::record('[ SESSION ] INIT ' . var_export($config, true), 'info');
         $isDoStart = false;
-        if (isset($config['use_trans_sid'])) {
-            ini_set('session.use_trans_sid', $config['use_trans_sid'] ? 1 : 0);
+        if (isset($config['options']['use_trans_sid'])) {
+            ini_set('session.use_trans_sid', $config['options']['use_trans_sid'] ? 1 : 0);
         }
 
         // 启动session
@@ -65,38 +66,38 @@ class Session
         if (isset($config['prefix']) && ('' === self::$prefix || null === self::$prefix)) {
             self::$prefix = $config['prefix'];
         }
-        if (isset($config['var_session_id']) && isset($_REQUEST[$config['var_session_id']])) {
-            session_id($_REQUEST[$config['var_session_id']]);
-        } elseif (isset($config['id']) && !empty($config['id'])) {
-            session_id($config['id']);
+        if (isset($config['options']['var_session_id']) && isset($_REQUEST[$config['options']['var_session_id']])) {
+            session_id($_REQUEST[$config['options']['var_session_id']]);
+        } elseif (isset($config['options']['id']) && !empty($config['options']['id'])) {
+            session_id($config['options']['id']);
         }
-        if (isset($config['name'])) {
-            session_name($config['name']);
+        if (isset($config['options']['name'])) {
+            session_name($config['options']['name']);
         }
-        if (isset($config['path'])) {
-            session_save_path($config['path']);
+        if (isset($config['options']['path'])) {
+            session_save_path($config['options']['path']);
         }
-        if (isset($config['domain'])) {
-            ini_set('session.cookie_domain', $config['domain']);
+        if (isset($config['options']['domain'])) {
+            ini_set('session.cookie_domain', $config['options']['domain']);
         }
-        if (isset($config['expire'])) {
-            ini_set('session.gc_maxlifetime', $config['expire']);
-            ini_set('session.cookie_lifetime', $config['expire']);
+        if (isset($config['options']['expire'])) {
+            ini_set('session.gc_maxlifetime', $config['options']['expire']);
+            ini_set('session.cookie_lifetime', $config['options']['expire']);
         }
-        if (isset($config['secure'])) {
-            ini_set('session.cookie_secure', $config['secure']);
+        if (isset($config['options']['secure'])) {
+            ini_set('session.cookie_secure', $config['options']['secure']);
         }
-        if (isset($config['httponly'])) {
-            ini_set('session.cookie_httponly', $config['httponly']);
+        if (isset($config['options']['httponly'])) {
+            ini_set('session.cookie_httponly', $config['options']['httponly']);
         }
-        if (isset($config['use_cookies'])) {
-            ini_set('session.use_cookies', $config['use_cookies'] ? 1 : 0);
+        if (isset($config['options']['use_cookies'])) {
+            ini_set('session.use_cookies', $config['options']['use_cookies'] ? 1 : 0);
         }
-        if (isset($config['cache_limiter'])) {
-            session_cache_limiter($config['cache_limiter']);
+        if (isset($config['options']['cache_limiter'])) {
+            session_cache_limiter($config['options']['cache_limiter']);
         }
-        if (isset($config['cache_expire'])) {
-            session_cache_expire($config['cache_expire']);
+        if (isset($config['options']['cache_expire'])) {
+            session_cache_expire($config['options']['cache_expire']);
         }
         if (!empty($config['type'])) {
             // 读取session驱动
@@ -133,9 +134,9 @@ class Session
 
     /**
      * session设置
-     * @param string        $name session名称
-     * @param mixed         $value session值
-     * @param string|null   $prefix 作用域（前缀）
+     * @param string $name session名称
+     * @param mixed $value session值
+     * @param string|null $prefix 作用域（前缀）
      * @return void
      */
     public static function set($name, $value = '', $prefix = null)
@@ -160,8 +161,8 @@ class Session
 
     /**
      * session获取
-     * @param string        $name session名称
-     * @param string|null   $prefix 作用域（前缀）
+     * @param string $name session名称
+     * @param string|null $prefix 作用域（前缀）
      * @return mixed
      */
     public static function get($name = '', $prefix = null)
@@ -175,14 +176,14 @@ class Session
             // 获取session
             if (strpos($name, '.')) {
                 list($name1, $name2) = explode('.', $name);
-                $value               = isset($_SESSION[$prefix][$name1][$name2]) ? $_SESSION[$prefix][$name1][$name2] : null;
+                $value = isset($_SESSION[$prefix][$name1][$name2]) ? $_SESSION[$prefix][$name1][$name2] : null;
             } else {
                 $value = isset($_SESSION[$prefix][$name]) ? $_SESSION[$prefix][$name] : null;
             }
         } else {
             if (strpos($name, '.')) {
                 list($name1, $name2) = explode('.', $name);
-                $value               = isset($_SESSION[$name1][$name2]) ? $_SESSION[$name1][$name2] : null;
+                $value = isset($_SESSION[$name1][$name2]) ? $_SESSION[$name1][$name2] : null;
             } else {
                 $value = isset($_SESSION[$name]) ? $_SESSION[$name] : null;
             }
@@ -192,8 +193,8 @@ class Session
 
     /**
      * session获取并删除
-     * @param string        $name session名称
-     * @param string|null   $prefix 作用域（前缀）
+     * @param string $name session名称
+     * @param string|null $prefix 作用域（前缀）
      * @return mixed
      */
     public static function pull($name, $prefix = null)
@@ -209,9 +210,9 @@ class Session
 
     /**
      * session设置 下一次请求有效
-     * @param string        $name session名称
-     * @param mixed         $value session值
-     * @param string|null   $prefix 作用域（前缀）
+     * @param string $name session名称
+     * @param mixed $value session值
+     * @param string|null $prefix 作用域（前缀）
      * @return void
      */
     public static function flash($name, $value)
@@ -245,8 +246,8 @@ class Session
 
     /**
      * 删除session数据
-     * @param string|array  $name session名称
-     * @param string|null   $prefix 作用域（前缀）
+     * @param string|array $name session名称
+     * @param string|null $prefix 作用域（前缀）
      * @return void
      */
     public static function delete($name, $prefix = null)
@@ -275,7 +276,7 @@ class Session
 
     /**
      * 清空session数据
-     * @param string|null   $prefix 作用域（前缀）
+     * @param string|null $prefix 作用域（前缀）
      * @return void
      */
     public static function clear($prefix = null)
@@ -291,8 +292,8 @@ class Session
 
     /**
      * 判断session数据
-     * @param string        $name session名称
-     * @param string|null   $prefix
+     * @param string $name session名称
+     * @param string|null $prefix
      * @return bool
      */
     public static function has($name, $prefix = null)
@@ -310,8 +311,8 @@ class Session
 
     /**
      * 添加数据到一个session数组
-     * @param  string  $key
-     * @param  mixed   $value
+     * @param  string $key
+     * @param  mixed $value
      * @return void
      */
     public static function push($key, $value)

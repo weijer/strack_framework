@@ -1221,7 +1221,9 @@ class Route
         if (isset(self::$bind['module'])) {
             $bind = str_replace('/', $depr, self::$bind['module']);
             // 如果有模块/控制器绑定
-            $url = $bind . ('.' != substr($bind, -1) ? $depr : '') . ltrim($url, $depr);
+            if (count(explode($depr, $url)) < 3) {
+                $url = $bind . ('.' != substr($bind, -1) ? $depr : '') . ltrim($url, $depr);
+            }
         }
         $url = str_replace($depr, '|', $url);
 
