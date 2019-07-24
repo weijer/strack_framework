@@ -701,8 +701,7 @@ class RelationModel extends Model
                 $pk = $this->getPk();
                 $this->_resData = $this->where([$pk => $result])->find();
                 $this->successMsg = "Add {$this->name} items successfully.";
-                return $this->_resData;
-                //return $this->handleQueryData($this->_resData);
+                return $this->handleQueryData($this->_resData);
             }
         } else {
             //数据验证失败，返回错误
@@ -735,8 +734,7 @@ class RelationModel extends Model
                 $pk = $this->getPk();
                 $this->_resData = $this->where([$pk => $param[$pk]])->find();
                 $this->successMsg = "Modify {$this->name} items successfully.";
-                return $this->_resData;
-                //return $this->handleQueryData($this->_resData);
+                return $this->handleQueryData($this->_resData);
             }
         } else {
             // 数据验证失败，返回错误
@@ -765,8 +763,7 @@ class RelationModel extends Model
             } else {
                 $pk = $this->getPk();
                 $this->_resData = $this->where([$pk => $data[$pk]])->find();
-                return $this->_resData;
-                //return $this->handleQueryData($this->_resData);
+                return $this->handleQueryData($this->_resData);
             }
         } else {
             // 数据验证失败，返回错误
@@ -826,8 +823,7 @@ class RelationModel extends Model
 
         // 数据格式化
         if ($needFormat) {
-            $dataFormat = $this->formatSelectData($findData, $this->getTableName(), 'find');
-            return $dataFormat;
+            return $this->handleQueryData($findData);
         } else {
             return $findData;
         }
@@ -895,8 +891,10 @@ class RelationModel extends Model
 
         // 数据格式化
         if ($needFormat) {
-            $dataFormat = $this->formatSelectData($selectData, $this->getTableName(), 'select');
-            return ["total" => $total, "rows" => $dataFormat];
+            foreach ($selectData as &$selectItem) {
+                $selectItem = $this->handleQueryData($selectItem);
+            }
+            return ["total" => $total, "rows" => $selectData];
         } else {
             return ["total" => $total, "rows" => $selectData];
         }
