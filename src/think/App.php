@@ -240,7 +240,7 @@ class App
                 } elseif ($module == $bindModule) {
                     $available = true;
                 }
-            } elseif (!in_array($module, $config['DENY_MODULE_LIST']) && is_dir(APP_PATH . $module)) {
+            } elseif (!in_array($module, $config['MODULE_DENY_LIST']) && is_dir(APP_PATH . $module)) {
                 $available = true;
             }
 

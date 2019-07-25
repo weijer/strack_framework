@@ -392,7 +392,6 @@ class Request
                 // CLI模式下 index.php module/controller/action/params/...
                 $_SERVER['PATH_INFO'] = isset($_SERVER['argv'][1]) ? $_SERVER['argv'][1] : '';
             }
-
             // 分析PATHINFO信息
             if (!isset($_SERVER['PATH_INFO'])) {
                 foreach (C('PATHINFO_FETCH') as $type) {
@@ -1118,8 +1117,7 @@ class Request
             '-bw' => 'BETWEEN', // 在之间
             '-not-bw' => 'NOT BETWEEN', // 不在之间
             '-in' => 'IN', // 在里面
-            '-not-in' => 'NOT IN', // 不在里面
-            '-logic' => '_logic'
+            '-not-in' => 'NOT IN' // 不在里面
         ];
         if (array_key_exists($val, $map)) {
             $val = $map[$val];

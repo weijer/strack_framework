@@ -19,6 +19,9 @@ return array(
         COMMON_PATH . 'config/config' . CONF_EXT, // 应用公共配置
     ),
 
+    // 应用tags配置
+    'app_tags' => '',
+
     // 公共函数
     'function' => [
         THINK_PATH . 'helper.php',

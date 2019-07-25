@@ -19,6 +19,9 @@ return array(
         COMMON_PATH . 'config/config' . CONF_EXT, // 应用公共配置
     ),
 
+    // 应用tags配置
+    'app_tags' => COMMON_PATH . 'config/tags.php',
+
     // 公共函数
     'function' => [
         THINK_PATH . 'helper.php',
@@ -57,15 +60,6 @@ return array(
         ],
         'app_begin' => [
             'behavior\CheckLangBehavior'
-        ],
-        'event_log' => [
-            'behavior\EventBehavior', // 写入EventLog
-        ],
-        'message' => [
-            'behavior\MessageBehavior', // 处理消息
-        ],
-        'auth' => [
-            'behavior\AuthBehavior', // 处理权限
-       ]
+        ]
     ],
 );
