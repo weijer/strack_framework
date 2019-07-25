@@ -247,12 +247,9 @@ class Loader
         }
 
         // 加载应用行为定义
-        if (is_file(CONF_PATH . 'tags.php')) // 允许应用增加开发模式配置定义
-        {
-            Hook::import(include CONF_PATH . 'tags.php');
+        if (isset($mode['app_tags'])) { // 允许应用增加开发模式配置定义
+            Hook::import(include $mode['app_tags']);
         }
-
-        defined('BIND_MODULE') or define(BIND_MODULE, C('DEFAULT_MODULE'));
     }
 
     /**
@@ -310,7 +307,7 @@ class Loader
         $GLOBALS['_beginTime'] = microtime(true);
 
         // 记录内存初始使用
-        defined('MEMORY_LIMIT_ON') or define('MEMORY_LIMIT_ON',   function_exists('memory_get_usage'));
+        defined('MEMORY_LIMIT_ON') or define('MEMORY_LIMIT_ON', function_exists('memory_get_usage'));
         if (MEMORY_LIMIT_ON) {
             $GLOBALS['_startUseMems'] = memory_get_usage();
         }
@@ -331,7 +328,7 @@ class Loader
         defined('CACHE_PATH') or define('CACHE_PATH', RUNTIME_PATH . 'cache' . DS); // 应用模板缓存目录
 
         // 环境常量
-        defined('THINK_PATH') or define('THINK_PATH', __DIR__.'/../../');
+        defined('THINK_PATH') or define('THINK_PATH', __DIR__ . '/../../');
         defined('LIB_PATH') or define('LIB_PATH', realpath(THINK_PATH . 'src') . DS); // 系统核心类库目录
         defined('CONF_PATH') or define('CONF_PATH', LIB_PATH . 'config' . DS); // 应用配置目录
         defined('CORE_PATH') or define('CORE_PATH', LIB_PATH . 'think' . DS); // Think类库目录
@@ -444,7 +441,7 @@ class Loader
 
         $class = self::parseName(array_pop($array), 1);
         $class = $class . (App::$suffix || $appendSuffix ? ucfirst($layer) : '');
-        $path  = $array ? implode('\\', $array) . '\\' : '';
+        $path = $array ? implode('\\', $array) . '\\' : '';
 
         return ($module ? $module . '\\' : '') . $layer . '\\' . $path . $class;
     }
@@ -452,16 +449,16 @@ class Loader
     /**
      * 解析模块和类名
      * @access protected
-     * @param  string $name         资源地址
-     * @param  string $layer        验证层名称
-     * @param  bool   $appendSuffix 是否添加类名后缀
+     * @param  string $name 资源地址
+     * @param  string $layer 验证层名称
+     * @param  bool $appendSuffix 是否添加类名后缀
      * @return array
      */
     protected static function getModuleAndClass($name, $layer, $appendSuffix)
     {
         if (false !== strpos($name, '\\')) {
             $module = Request::instance()->module();
-            $class  = $name;
+            $class = $name;
         } else {
             if (strpos($name, '/')) {
                 list($module, $name) = explode('/', $name, 2);
@@ -479,10 +476,10 @@ class Loader
     /**
      * 实例化（分层）模型
      * @access public
-     * @param  string $name         Model名称
-     * @param  string $layer        业务层名称
-     * @param  bool   $appendSuffix 是否添加类名后缀
-     * @param  string $common       公共模块名
+     * @param  string $name Model名称
+     * @param  string $layer 业务层名称
+     * @param  bool $appendSuffix 是否添加类名后缀
+     * @param  string $common 公共模块名
      * @return object
      * @throws ClassNotFoundException
      */
