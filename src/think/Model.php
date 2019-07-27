@@ -1574,7 +1574,7 @@ class Model
                 if (empty($val[5]) || (self::MODEL_BOTH == $val[5] && $type < 3) || $val[5] == $type) {
                     if (0 == strpos($val[2], '{%') && strpos($val[2], '}')) // 支持提示信息的多语言 使用 {%语言定义} 方式
                     {
-                        $langMsg = substr($val[2], 2, -1);
+                        $langMsg = L(substr($val[2], 2, -1));
                     } else {
                         $langMsg = $val[2];
                     }
@@ -1631,7 +1631,7 @@ class Model
     {
         //消息支持类型
         if ($massge) {
-            $msg = L($massge);
+            $msg = $massge;
         } else {
             if (array_key_exists($ruleName, $this->typeMsg)) {
                 //内置消息提示
