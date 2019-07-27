@@ -17,6 +17,12 @@ class CasbinAdapter implements AdapterContract
     // 过滤条件
     protected $filter = [];
 
+    //
+    protected $effectField = 'v3';
+
+    // 权限黑名单
+    protected $ruleBlackList = [];
+
     /**
      * CasbinAdapter constructor.
      * @param RelationModel $casbinRule
@@ -33,9 +39,16 @@ class CasbinAdapter implements AdapterContract
      */
     public function loadPolicy($model)
     {
-        $rows = $this->casbinRule->where($this->filter)->select();
+        $rows = $this->casbinRule
+            ->field('id,ptype,v0,v1,v2,v3,v4,v5')
+            ->where($this->filter)
+            ->select();
 
         foreach ($rows as $row) {
+            if (in_array($row['id'], $this->ruleBlackList)) {
+                // 判断是否在黑名单里面
+                $row[$this->effectField] = 'deny';
+            }
             $line = implode(', ', array_slice(array_values($row), 1));
             $this->loadPolicyLine(trim($line), $model);
         }
@@ -66,7 +79,7 @@ class CasbinAdapter implements AdapterContract
 
     /**
      * 将所有策略规则保存到存储中
-     * @param $model
+     * @param \Casbin\Model\Model $model
      * @return bool
      */
     public function savePolicy($model)
@@ -88,10 +101,10 @@ class CasbinAdapter implements AdapterContract
 
     /**
      * 向存储中添加策略规则
-     * @param $sec
-     * @param $ptype
-     * @param $rule
-     * @return array
+     * @param string $sec
+     * @param string $ptype
+     * @param array $rule
+     * @return array|mixed
      */
     public function addPolicy($sec, $ptype, $rule)
     {
