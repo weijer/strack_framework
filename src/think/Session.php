@@ -42,12 +42,7 @@ class Session
     public static function init(array $config = [])
     {
         if (empty($config)) {
-            $config = [
-                'prefix' => C('SESSION_PREFIX'),
-                'options' => C('SESSION_OPTIONS'),
-                'type' => C('SESSION_TYPE'),
-                'auto_start' => C('SESSION_AUTO_START')
-            ];
+            $config = C('session');
         }
 
         // 记录初始化信息

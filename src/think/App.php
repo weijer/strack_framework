@@ -356,9 +356,9 @@ class App
             } else {
                 $files = $config['ROUTE_CONFIG_FILE'];
                 foreach ($files as $file) {
-                    if (is_file(CONF_PATH . $file . CONF_EXT)) {
+                    if (is_file(COMMON_PATH . 'config/' . $file . CONF_EXT)) {
                         // 导入路由配置
-                        $rules = include CONF_PATH . $file . CONF_EXT;
+                        $rules = include COMMON_PATH . 'config/' . $file . CONF_EXT;
                         is_array($rules) && Route::import($rules);
                     }
                 }
