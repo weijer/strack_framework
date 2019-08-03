@@ -1246,6 +1246,29 @@ if (!function_exists('session')) {
     }
 }
 
+if (!function_exists('set_user_session_id')) {
+    /**
+     * 设置用户session id
+     * @param array $param
+     * @param string $type
+     */
+    function set_user_session_id($param = [], $type = 'find')
+    {
+        if ($type === 'find' && !empty($param)) {
+            $userModel = new \common\model\UserModel();
+            $userData = $userModel->field('id,login_name,phone')->where($param)->find();
+        } else {
+            $userData = $param;
+        }
+
+        if (!empty($userData)) {
+            // 设置session id
+            session_id(md5('st_session_id_' . $userData['id'] . '_' . $userData['login_name'] . '_' . $userData['phone']));
+        }
+    }
+}
+
+
 if (!function_exists('cookie')) {
     /**
      * Cookie 设置、获取、删除
