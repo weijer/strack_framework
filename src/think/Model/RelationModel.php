@@ -1941,7 +1941,7 @@ class RelationModel extends Model
         foreach ($filter["request"] as $item) {
             if ($currentModule == $item["module_code"]) {
                 // 自身字段
-                if (!empty($item["value"])) {
+                if (isset($item["value"])) {
                     $filterRequest[$currentModule . '.' . $item["field"]] = [$item["condition"], $item["value"]];
                 }
             } else {
