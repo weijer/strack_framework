@@ -12,7 +12,19 @@
 namespace think;
 
 /**
- * ThinkPHP 数据库中间层实现类
+ * Class Db
+ * @package think
+ * @method mixed select(mixed $data = null) static 查询多个记录
+ * @method integer insert(array $data, boolean $replace = false, boolean $getLastInsID = false, string $sequence = null) static 插入一条记录
+ * @method integer insertAll(array $dataSet) static 插入多条记录
+ * @method integer update(array $data) static 更新记录
+ * @method integer delete(mixed $data = null) static 删除记录
+ * @method mixed query(string $sql, array $bind = [], boolean $master = false, bool $pdo = false) static SQL查询
+ * @method integer execute(string $sql, array $bind = [], boolean $fetch = false, boolean $getLastInsID = false, string $sequence = null) static SQL执行
+ * @method void startTrans() static 启动事务
+ * @method void commit() static 用于非自动提交状态下面的查询提交
+ * @method void rollback() static 事务回滚
+ * @method string getLastInsID($sequence = null) static 获取最近插入的ID
  */
 class Db
 {
@@ -143,6 +155,6 @@ class Db
     // 调用驱动类的方法
     public static function __callStatic($method, $params)
     {
-        return call_user_func_array(array(self::$_instance, $method), $params);
+        return call_user_func_array(array(self::getInstance(), $method), $params);
     }
 }
