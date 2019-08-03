@@ -24,7 +24,10 @@ class Model
     const EXISTS_VALIDATE = 0; // 表单存在字段则验证
     const VALUE_VALIDATE = 2; // 表单值不为空则验证
 
-    // 当前数据库操作对象
+    /**
+     * 当前数据库操作对象
+     * @var \think\Db
+     */
     protected $db = null;
 
     // 数据库对象池
@@ -2124,7 +2127,7 @@ class Model
      */
     public function startTrans()
     {
-        $this->commit();
+        //$this->commit();
         $this->db->startTrans();
         return;
     }

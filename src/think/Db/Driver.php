@@ -269,18 +269,14 @@ abstract class Driver
      */
     public function startTrans()
     {
+        $this->transTimes++;
         $this->initConnect(true);
-        if (!$this->_linkID) {
-            return false;
-        }
+        if ( !$this->_linkID ) return false;
         //数据rollback 支持
-        if (0 == $this->transTimes) {
-            // 记录当前操作PDO
-            $this->transPdo = $this->_linkID;
+        if ($this->transTimes == 1) {
             $this->_linkID->beginTransaction();
         }
-        $this->transTimes++;
-        return;
+        return ;
     }
 
     /**
@@ -290,17 +286,15 @@ abstract class Driver
      */
     public function commit()
     {
-        if (1 == $this->transTimes) {
-            // 由嵌套事物的最外层进行提交
+        if ($this->transTimes == 1) {
             $result = $this->_linkID->commit();
             $this->transTimes = 0;
-            $this->transPdo = null;
-            if (!$result) {
+            if(!$result){
                 $this->error();
                 return false;
             }
         } else {
-            $this->transTimes = $this->transTimes <= 0 ? 0 : $this->transTimes - 1;
+            --$this->transTimes;
         }
         return true;
     }
@@ -312,14 +306,15 @@ abstract class Driver
      */
     public function rollback()
     {
-        if ($this->transTimes > 0) {
+        if ($this->transTimes == 1) {
             $result = $this->_linkID->rollback();
             $this->transTimes = 0;
-            $this->transPdo = null;
-            if (!$result) {
+            if(!$result){
                 $this->error();
                 return false;
             }
+        } else {
+            --$this->transTimes;
         }
         return true;
     }

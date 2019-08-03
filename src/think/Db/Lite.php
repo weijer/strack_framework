@@ -244,17 +244,14 @@ class Lite
      */
     public function startTrans()
     {
+        $this->transTimes++;
         $this->initConnect(true);
-        if (!$this->_linkID) {
-            return false;
-        }
-
+        if ( !$this->_linkID ) return false;
         //数据rollback 支持
-        if (0 == $this->transTimes) {
+        if ($this->transTimes == 1) {
             $this->_linkID->beginTransaction();
         }
-        $this->transTimes++;
-        return;
+        return ;
     }
 
     /**
@@ -264,13 +261,15 @@ class Lite
      */
     public function commit()
     {
-        if ($this->transTimes > 0) {
+        if ($this->transTimes == 1) {
             $result = $this->_linkID->commit();
             $this->transTimes = 0;
-            if (!$result) {
+            if(!$result){
                 $this->error();
                 return false;
             }
+        } else {
+            --$this->transTimes;
         }
         return true;
     }
@@ -282,13 +281,15 @@ class Lite
      */
     public function rollback()
     {
-        if ($this->transTimes > 0) {
+        if ($this->transTimes == 1) {
             $result = $this->_linkID->rollback();
             $this->transTimes = 0;
-            if (!$result) {
+            if(!$result){
                 $this->error();
                 return false;
             }
+        } else {
+            --$this->transTimes;
         }
         return true;
     }
