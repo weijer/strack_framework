@@ -169,7 +169,13 @@ if (!function_exists('throw_strack_exception')) {
      */
     function throw_strack_exception($msg, $code = 404, $data = [], $type = 'json')
     {
-        throw new think\exception\StrackException($code, $msg, $data, $type);
+        $errorData = [
+            "status" => $code,
+            "message" => $msg,
+            "data" => $data
+        ];
+        $response = new \think\Response(json_encode($errorData));
+        throw new think\exception\HttpResponseException($response);
     }
 }
 
