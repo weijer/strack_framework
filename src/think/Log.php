@@ -73,7 +73,7 @@ class Log
         }
 
         if (empty($destination)) {
-            $destination = C('LOG_PATH') . date('y_m_d') . '.log';
+            $destination = LOG_PATH . date('y_m_d') . '.log';
         }
         if (!self::$storage) {
             $type = $type ?: C('LOG_TYPE');
@@ -111,11 +111,11 @@ class Log
         if (!self::$storage) {
             $type = $type ?: C('LOG_TYPE');
             $class = 'think\\log\\driver\\' . ucwords($type);
-            $config['log_path'] = C('LOG_PATH');
+            $config['log_path'] = LOG_PATH;
             self::$storage = new $class($config);
         }
         if (empty($destination)) {
-            $destination = C('LOG_PATH') . date('y_m_d') . '.log';
+            $destination = LOG_PATH . date('y_m_d') . '.log';
         }
         self::$storage->write("{$level}: {$message}", $destination);
     }
