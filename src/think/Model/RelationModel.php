@@ -2066,7 +2066,7 @@ class RelationModel extends Model
                 $condition = 'NEQ';
                 $value = 0;
             }
-        } else if ((int)$value === 0) {
+        } else if ($value === '0' || $value === 0) {
             // 当前过滤条件值为零
             $condition = 'NEQ';
             $this->isNullOrEmptyFilter = true;
