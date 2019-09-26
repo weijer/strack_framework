@@ -273,6 +273,9 @@ class Loader
             C(include CONF_PATH . APP_STATUS . CONF_EXT);
         }
 
+        // 加载动态应用公共文件和配置
+        load_ext_file(COMMON_PATH);
+
         // 设置系统时区
         date_default_timezone_set(C('DEFAULT_TIMEZONE'));
     }

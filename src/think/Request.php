@@ -1093,7 +1093,7 @@ class Request
      */
     public function parserFilter(&$data)
     {
-        if (array_key_exists("param", $data) && array_key_exists("filter", $data['param'])) {
+        if ((array_key_exists("param", $data) && array_key_exists("filter", $data['param'])) || array_key_exists("filter", $data)) {
             array_walk_recursive($data, [$this, 'parserFilterCondition']);
         }
         return $data;
