@@ -2080,7 +2080,7 @@ class RelationModel extends Model
      * @param $item
      * @return array
      */
-    private function buildWidgetFilter($item)
+    public function buildWidgetFilter($item)
     {
         switch ($item["editor"]) {
             case "text":
