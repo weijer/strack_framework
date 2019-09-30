@@ -22,14 +22,22 @@ class Cors
      */
     public static function check(Request $request)
     {
-        $allowUrl = C('web_url') ?: '*';
+        if (!empty(C('web_url'))) {
+            $allowUrl = explode(',', C('web_url'));
+        } else {
+            $allowUrl = ['*'];
+        }
+
         $header = [
             //'Access-Control-Allow-Origin' => '*',
-            'Access-Control-Allow-Origin' => $allowUrl,
             'Access-Control-Allow-Methods' => 'GET, POST, PATCH, PUT, DELETE',
             'Access-Control-Allow-Credentials' => true,
             'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Token, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, X-Requested-With',
         ];
+
+        foreach ($allowUrl as $origin){
+            $header[ 'Access-Control-Allow-Origin'] = $origin;
+        }
 
         if ($request->method(true) == 'OPTIONS') {
             return Response::create()->code(204)->header($header);
