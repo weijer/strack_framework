@@ -96,7 +96,7 @@ class View
             $templateFile = $this->parseTemplate($templateFile);
             // 模板文件不存在直接返回
             if (!is_file($templateFile)) {
-                E(L('_TEMPLATE_NOT_EXIST_') . ':' . $templateFile);
+                StrackE(L('_TEMPLATE_NOT_EXIST_') . ':' . $templateFile);
             }
 
         } else {

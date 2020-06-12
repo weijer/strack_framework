@@ -104,7 +104,7 @@ class Lite
                 }
                 $this->linkID[$linkNum] = new PDO($config['dsn'], $config['username'], $config['password'], $this->options);
             } catch (\PDOException $e) {
-                E($e->getMessage());
+                StrackE($e->getMessage());
             }
         }
         return $this->linkID[$linkNum];
@@ -161,7 +161,7 @@ class Lite
         $this->debug(true);
         $this->PDOStatement = $this->_linkID->prepare($str);
         if (false === $this->PDOStatement) {
-            E($this->error());
+            StrackE($this->error());
         }
 
         foreach ($bind as $key => $val) {
@@ -214,7 +214,7 @@ class Lite
         $this->debug(true);
         $this->PDOStatement = $this->_linkID->prepare($str);
         if (false === $this->PDOStatement) {
-            E($this->error());
+            StrackE($this->error());
         }
         foreach ($bind as $key => $val) {
             if (is_array($val)) {
@@ -358,7 +358,7 @@ class Lite
         trace($this->error, '', 'ERR');
         if ($this->config['debug']) {
 // 开启数据库调试模式
-            E($this->error);
+            StrackE($this->error);
         } else {
             return $this->error;
         }

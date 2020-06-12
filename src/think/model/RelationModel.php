@@ -629,7 +629,7 @@ class RelationModel extends Model
         } elseif (array_key_exists($name, $this->data)) {
             return $this->data[$name];
         } else {
-            E('property not exists:' . $name);
+            StrackE('property not exists:' . $name);
         }
     }
 

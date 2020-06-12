@@ -141,11 +141,11 @@ if (!function_exists('success_response')) {
      */
     function success_response($message = '', $data = [], $status = 0)
     {
-        return ["status" => $status, "message" => $message, "data" => $data];
+        return ["code" => $status, "msg" => $message, "data" => $data];
     }
 }
 
-if (!function_exists('E')) {
+if (!function_exists('StrackE')) {
     /**
      * 抛出异常处理
      * @param string $msg 异常消息
@@ -153,9 +153,9 @@ if (!function_exists('E')) {
      * @throws think\Exception
      * @return void
      */
-    function E($msg, $code = 0)
+    function StrackE($msg, $code = -400000)
     {
-        throw new think\Exception($msg, $code);
+        throw_strack_exception($msg, $code);
     }
 }
 
@@ -170,8 +170,8 @@ if (!function_exists('throw_strack_exception')) {
     function throw_strack_exception($msg, $code = -404, $data = [], $type = 'json')
     {
         $errorData = [
-            "status" => $code,
-            "message" => $msg,
+            "code" => $code,
+            "msg" => $msg,
             "data" => $data
         ];
         $response = new \think\Response(json_encode($errorData));
@@ -1269,7 +1269,7 @@ if (!function_exists('set_user_session_id')) {
 
         if (!empty($userData)) {
             // 设置session id
-            session_id(md5('st_session_id_' . $userData['id'] . '_' . $userData['phone']));
+            session_id(md5('st_session_id_' . $userData['id'] . '_'  . $userData['phone']));
         }
     }
 }

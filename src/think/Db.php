@@ -57,7 +57,7 @@ class Db
                 self::$instance[$md5] = new $class($options);
             } else {
                 // 类没有定义
-                E(L('_NO_DB_DRIVER_') . ': ' . $class);
+                StrackE(L('_NO_DB_DRIVER_') . ': ' . $class);
             }
         }
         self::$_instance = self::$instance[$md5];

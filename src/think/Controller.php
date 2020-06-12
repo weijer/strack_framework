@@ -182,10 +182,10 @@ class Controller
                 // 检查是否存在默认模版 如果有直接输出模版
                 $this->display();
             } else {
-                E(L('_ERROR_ACTION_') . ':' . Request::instance()->action());
+                StrackE(L('_ERROR_ACTION_') . ':' . Request::instance()->action());
             }
         } else {
-            E(__CLASS__ . ':' . $method . L('_METHOD_NOT_EXIST_'));
+            StrackE(__CLASS__ . ':' . $method . L('_METHOD_NOT_EXIST_'));
             return;
         }
     }

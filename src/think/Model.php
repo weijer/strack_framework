@@ -357,7 +357,7 @@ class Model
             // 命名范围的单独调用支持
             return $this->scope($method, $args[0]);
         } else {
-            E(__CLASS__ . ':' . $method . L('_METHOD_NOT_EXIST_'));
+            StrackE(__CLASS__ . ':' . $method . L('_METHOD_NOT_EXIST_'));
             return;
         }
     }
@@ -391,7 +391,7 @@ class Model
             foreach ($data as $key => $val) {
                 if (!in_array($key, $fields, true)) {
                     if (!empty($this->options['strict'])) {
-                        E(L('_DATA_TYPE_INVALID_') . ':[' . $key . '=>' . $val . ']');
+                        StrackE(L('_DATA_TYPE_INVALID_') . ':[' . $key . '=>' . $val . ']');
                     }
                     unset($data[$key]);
                 } elseif (is_scalar($val)) {
@@ -2273,7 +2273,7 @@ class Model
         } elseif (is_string($data)) {
             parse_str($data, $data);
         } elseif (!is_array($data)) {
-            E(L('_DATA_TYPE_INVALID_'));
+            StrackE(L('_DATA_TYPE_INVALID_'));
         }
         $this->data = $data;
         return $this;
@@ -2383,7 +2383,7 @@ class Model
                 $options = $union;
             }
         } else {
-            E(L('_DATA_TYPE_INVALID_'));
+            StrackE(L('_DATA_TYPE_INVALID_'));
         }
         $this->options['union'][] = $options;
         return $this;

@@ -1,6 +1,6 @@
 {
     "name": "strack/framework",
-    "description": "strack底层框架，基于tp3.2.3",
+    "description": "strack底层框架",
     "type": "library",
     "license": "MIT",
     "authors": [

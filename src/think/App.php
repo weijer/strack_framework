@@ -477,7 +477,7 @@ class App
                     } elseif ($param->isDefaultValueAvailable()) {
                         $args[] = $param->getDefaultValue();
                     } else {
-                        E(L('_PARAM_ERROR_') . ':' . $name);
+                        StrackE(L('_PARAM_ERROR_') . ':' . $name);
                     }
                 }
                 // 开启绑定参数过滤机制

@@ -52,7 +52,7 @@ class Ftp
 
         /* 登录FTP服务器 */
         if (!$this->login()) {
-            E($this->error);
+            StrackE($this->error);
         }
     }
 

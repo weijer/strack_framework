@@ -49,7 +49,7 @@ class ParseTemplateBehavior
                 $tpl->fetch($_content, $_data['var']);
             } else {
                 // 类没有定义
-                E(L('_NOT_SUPPORT_') . ': ' . $class);
+                StrackE(L('_NOT_SUPPORT_') . ': ' . $class);
             }
         }
     }
