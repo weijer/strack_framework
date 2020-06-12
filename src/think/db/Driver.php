@@ -111,7 +111,7 @@ abstract class Driver
                     trace($e->getMessage(), '', 'ERR');
                     return $this->connect($autoConnection, $linkNum);
                 } elseif ($config['debug']) {
-                    E($e->getMessage());
+                    StrackE($e->getMessage());
                 }
             }
         }
@@ -383,7 +383,7 @@ abstract class Driver
         trace($this->error, '', 'ERR');
         if ($this->config['debug']) {
             // 开启数据库调试模式
-            E($this->error);
+            StrackE($this->error);
         } else {
             return $this->error;
         }
@@ -559,7 +559,7 @@ abstract class Driver
                 } else {
                     // 查询字段的安全过滤
                     // if(!preg_match('/^[A-Z_\|\&\-.a-z0-9\(\)\,]+$/',trim($key))){
-                    //     E(L('_EXPRESS_ERROR_').':'.$key);
+                    //     StrackE(L('_EXPRESS_ERROR_').':'.$key);
                     // }
                     // 多条件支持
                     $multi = is_array($val) && isset($val['_multi']);
@@ -638,7 +638,7 @@ abstract class Driver
                     $data = is_string($val[1]) ? explode(',', $val[1]) : $val[1];
                     $whereStr .= $key . ' ' . $this->exp[$exp] . ' ' . $this->parseValue($data[0]) . ' AND ' . $this->parseValue($data[1]);
                 } else {
-                    E(L('_EXPRESS_ERROR_') . ':' . $val[0]);
+                    StrackE(L('_EXPRESS_ERROR_') . ':' . $val[0]);
                 }
             } else {
                 $count = count($val);
@@ -1047,6 +1047,7 @@ abstract class Driver
         $this->model = $options['model'];
         $this->parseBind(!empty($options['bind']) ? $options['bind'] : array());
         $sql = $this->buildSelectSql($options);
+
         $result = $this->query($sql, !empty($options['fetch_sql']) ? true : false, !empty($options['master']) ? true : false);
         return $result;
     }
@@ -1067,6 +1068,7 @@ abstract class Driver
             $offset = $listRows * ($page - 1);
             $options['limit'] = $offset . ',' . $listRows;
         }
+
         $sql = $this->parseSql($this->selectSql, $options);
         return $sql;
     }

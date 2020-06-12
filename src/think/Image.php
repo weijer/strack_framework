@@ -64,7 +64,7 @@ class Image
                 $class = 'Imagick';
                 break;
             default:
-                E('不支持的图片处理库类型');
+                StrackE('不支持的图片处理库类型');
         }
 
         /* 引入处理库，实例化图片处理对象 */

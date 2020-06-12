@@ -120,7 +120,7 @@ class Template
                 $layoutFile = THEME_PATH . C('LAYOUT_NAME') . $this->config['template_suffix'];
                 // 检查布局文件
                 if (!is_file($layoutFile)) {
-                    E(L('_TEMPLATE_NOT_EXIST_') . ':' . $layoutFile);
+                    StrackE(L('_TEMPLATE_NOT_EXIST_') . ':' . $layoutFile);
                 }
                 $tmplContent = str_replace($this->config['layout_item'], $tmplContent, file_get_contents($layoutFile));
             }
@@ -215,7 +215,7 @@ class Template
         }
         // PHP语法检查
         if (C('TMPL_DENY_PHP') && false !== strpos($content, '<?php')) {
-            E(L('_NOT_ALLOW_PHP_'));
+            StrackE(L('_NOT_ALLOW_PHP_'));
         }
         return $content;
     }
@@ -304,7 +304,7 @@ class Template
         $xml = '<tpl><tag ' . $attrs . ' /></tpl>';
         $xml = simplexml_load_string($xml);
         if (!$xml) {
-            E(L('_XML_TAG_ERROR_'));
+            StrackE(L('_XML_TAG_ERROR_'));
         }
 
         $xml = (array)($xml->tag->attributes());

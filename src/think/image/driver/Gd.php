@@ -46,7 +46,7 @@ class Gd
         //检测图像文件
         //当本地文件时才判断如下if语句，否则如果是http外网图片时不判断
         if (substr($imgname, 0, 4) != 'http' && !is_file($imgname)) {
-            E('不存在的图像文件');
+            StrackE('不存在的图像文件');
         }
 
         //获取图像信息
@@ -54,7 +54,7 @@ class Gd
 
         //检测图像合法性
         if (false === $info || (IMAGETYPE_GIF === $info[2] && empty($info['bits']))) {
-            E('非法图像文件');
+            StrackE('非法图像文件');
         }
 
         //设置图像信息
@@ -92,7 +92,7 @@ class Gd
     public function save($imgname, $type = null, $quality = 80, $interlace = true)
     {
         if (empty($this->img)) {
-            E('没有可以被保存的图像资源');
+            StrackE('没有可以被保存的图像资源');
         }
 
         //自动获取图像类型
@@ -126,7 +126,7 @@ class Gd
     public function width()
     {
         if (empty($this->img)) {
-            E('没有指定图像资源');
+            StrackE('没有指定图像资源');
         }
 
         return $this->info['width'];
@@ -139,7 +139,7 @@ class Gd
     public function height()
     {
         if (empty($this->img)) {
-            E('没有指定图像资源');
+            StrackE('没有指定图像资源');
         }
 
         return $this->info['height'];
@@ -152,7 +152,7 @@ class Gd
     public function type()
     {
         if (empty($this->img)) {
-            E('没有指定图像资源');
+            StrackE('没有指定图像资源');
         }
 
         return $this->info['type'];
@@ -165,7 +165,7 @@ class Gd
     public function mime()
     {
         if (empty($this->img)) {
-            E('没有指定图像资源');
+            StrackE('没有指定图像资源');
         }
 
         return $this->info['mime'];
@@ -178,7 +178,7 @@ class Gd
     public function size()
     {
         if (empty($this->img)) {
-            E('没有指定图像资源');
+            StrackE('没有指定图像资源');
         }
 
         return array($this->info['width'], $this->info['height']);
@@ -196,7 +196,7 @@ class Gd
     public function crop($w, $h, $x = 0, $y = 0, $width = null, $height = null)
     {
         if (empty($this->img)) {
-            E('没有可以被裁剪的图像资源');
+            StrackE('没有可以被裁剪的图像资源');
         }
 
         //设置保存尺寸
@@ -234,7 +234,7 @@ class Gd
     public function thumb($width, $height, $type = Image::IMAGE_THUMB_SCALE)
     {
         if (empty($this->img)) {
-            E('没有可以被缩略的图像资源');
+            StrackE('没有可以被缩略的图像资源');
         }
 
         //原图宽度和高度
@@ -333,7 +333,7 @@ class Gd
                 break;
 
             default:
-                E('不支持的缩略图裁剪类型');
+                StrackE('不支持的缩略图裁剪类型');
         }
 
         /* 裁剪图像 */
@@ -350,17 +350,17 @@ class Gd
     {
         //资源检测
         if (empty($this->img)) {
-            E('没有可以被添加水印的图像资源');
+            StrackE('没有可以被添加水印的图像资源');
         }
 
         if (!is_file($source)) {
-            E('水印图像不存在');
+            StrackE('水印图像不存在');
         }
 
         //获取水印图像信息
         $info = getimagesize($source);
         if (false === $info || (IMAGETYPE_GIF === $info[2] && empty($info['bits']))) {
-            E('非法水印文件');
+            StrackE('非法水印文件');
         }
 
         //创建水印图像资源
@@ -430,7 +430,7 @@ class Gd
                 if (is_array($locate)) {
                     list($x, $y) = $locate;
                 } else {
-                    E('不支持的水印位置类型');
+                    StrackE('不支持的水印位置类型');
                 }
         }
 
@@ -468,11 +468,11 @@ class Gd
     {
         //资源检测
         if (empty($this->img)) {
-            E('没有可以被写入文字的图像资源');
+            StrackE('没有可以被写入文字的图像资源');
         }
 
         if (!is_file($font)) {
-            E("不存在的字体文件：{$font}");
+            StrackE("不存在的字体文件：{$font}");
         }
 
         //获取文字信息
@@ -546,7 +546,7 @@ class Gd
                     $x += $posx;
                     $y += $posy;
                 } else {
-                    E('不支持的文字位置类型');
+                    StrackE('不支持的文字位置类型');
                 }
         }
 
@@ -567,7 +567,7 @@ class Gd
                 $color[3] = 0;
             }
         } elseif (!is_array($color)) {
-            E('错误的颜色值');
+            StrackE('错误的颜色值');
         }
 
         do {
