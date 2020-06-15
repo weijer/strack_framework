@@ -1520,6 +1520,10 @@ class Model
                                 $data[$auto[0]] = call_user_func_array(array(&$this, $auto[1]), $args);
                             }
                             break;
+                        case 'function_with_data':
+                            // 使用函数进行填充，传入数组值和字段名
+                            $data[$auto[0]] = call_user_func_array($auto[1], ['data' => $data, "field" => $auto[0]]);
+                            break;
                         case 'field':    // 用其它字段的值进行填充
                             $data[$auto[0]] = $data[$auto[1]];
                             break;

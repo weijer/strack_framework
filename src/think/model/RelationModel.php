@@ -45,6 +45,12 @@ class RelationModel extends Model
     // 是否是空值查询
     protected $isNullOrEmptyFilter = false;
 
+    // 当前模块id
+    protected $currentModuleId = 0;
+
+    // 自定义字段配置
+    protected $customFieldConfig = [];
+
     /**
      * 动态方法实现
      * @access public
