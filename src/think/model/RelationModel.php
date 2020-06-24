@@ -660,6 +660,7 @@ class RelationModel extends Model
             // 类型转换
             $value = $this->readTransform($value, $this->type[$name]);
         }
+
         return $value;
     }
 
@@ -688,6 +689,52 @@ class RelationModel extends Model
         return !empty($item) ? $item : [];
     }
 
+    /**
+     * 处理返回数据
+     * @param $data
+     * @param bool $first
+     * @return array
+     */
+    public function handleReturnData($data, $first = true)
+    {
+        $dealData = !empty($data) ? $data : $this->data;
+
+        $this->data = $this->handleQueryData($dealData);
+
+        if ($first && is_many_dimension_array($this->data)) {
+            $item = [];
+            foreach ($this->data as $value) {
+                $this->data = $value;
+                $item[] = $this->handleReturnData(false);
+            }
+            return $item;
+        } else {
+            //过滤属性
+            if (!empty($this->visible)) {
+                $data = array_intersect_key($this->data, array_flip($this->visible));
+            } elseif (!empty($this->hidden)) {
+                $data = array_diff_key($this->data, array_flip($this->hidden));
+            } else {
+                $data = $this->data;
+            }
+
+            // 追加属性自定义字段
+            if (!empty($this->appendCustomField)) {
+                foreach ($this->appendCustomField as $field => $value) {
+                    $data[$field] = $value;
+                }
+            }
+
+            // 追加属性（必须定义获取器）
+            if (!empty($this->append)) {
+                foreach ($this->append as $name) {
+                    $data[$name] = $this->getAttr($name);
+                }
+            }
+            return !empty($data) ? $data : [];
+        }
+    }
+
 
     /**
      * 新增数据，成功返回当前添加的一条完整数据
@@ -707,7 +754,7 @@ class RelationModel extends Model
                 $pk = $this->getPk();
                 $this->_resData = $this->where([$pk => $result])->find();
                 $this->successMsg = "Add {$this->name} items successfully.";
-                return $this->handleQueryData($this->_resData);
+                return $this->handleReturnData($this->_resData);
             }
         } else {
             //数据验证失败，返回错误
@@ -740,7 +787,7 @@ class RelationModel extends Model
                 $pk = $this->getPk();
                 $this->_resData = $this->where([$pk => $param[$pk]])->find();
                 $this->successMsg = "Modify {$this->name} items successfully.";
-                return $this->handleQueryData($this->_resData);
+                return $this->handleReturnData($this->_resData);
             }
         } else {
             // 数据验证失败，返回错误
@@ -769,7 +816,7 @@ class RelationModel extends Model
             } else {
                 $pk = $this->getPk();
                 $this->_resData = $this->where([$pk => $data[$pk]])->find();
-                return $this->handleQueryData($this->_resData);
+                return $this->handleReturnData($this->_resData);
             }
         } else {
             // 数据验证失败，返回错误
@@ -829,7 +876,7 @@ class RelationModel extends Model
 
         // 数据格式化
         if ($needFormat) {
-            return $this->handleQueryData($findData);
+            return $this->handleReturnData($findData);
         } else {
             return $findData;
         }
@@ -898,7 +945,7 @@ class RelationModel extends Model
         // 数据格式化
         if ($needFormat) {
             foreach ($selectData as &$selectItem) {
-                $selectItem = $this->handleQueryData($selectItem);
+                $selectItem = $this->handleReturnData($selectItem);
             }
             return ["total" => $total, "rows" => $selectData];
         } else {

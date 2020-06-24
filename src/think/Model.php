@@ -91,6 +91,18 @@ class Model
     protected $_map = array(); // 字段映射定义
     protected $_scope = array(); // 命名范围定义
 
+    // 显示属性
+    protected $visible = [];
+
+    // 隐藏属性
+    protected $hidden = [];
+
+    // 追加属性
+    protected $append = [];
+
+    // 追加自定义字段属性
+    protected $appendCustomField = [];
+
     // 是否自动检测数据表字段信息
     protected $autoCheckFields = true;
 

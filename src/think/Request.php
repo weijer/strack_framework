@@ -122,6 +122,13 @@ class Request
     // 缓存是否检查
     protected $isCheckCache;
 
+    // 请求批次号
+    public static $batchNumber = '';
+
+    // 模块数据
+    public static $moduleDictData = [];
+
+
     /**
      * 构造函数
      * @access protected
