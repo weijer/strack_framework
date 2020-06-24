@@ -695,7 +695,7 @@ class RelationModel extends Model
      * @param bool $first
      * @return array
      */
-    public function handleReturnData($data, $first = true)
+    public function handleReturnData($first = true, $data = [])
     {
         $dealData = !empty($data) ? $data : $this->data;
 
@@ -754,7 +754,7 @@ class RelationModel extends Model
                 $pk = $this->getPk();
                 $this->_resData = $this->where([$pk => $result])->find();
                 $this->successMsg = "Add {$this->name} items successfully.";
-                return $this->handleReturnData($this->_resData);
+                return $this->handleReturnData(false, $this->_resData);
             }
         } else {
             //数据验证失败，返回错误
@@ -787,7 +787,7 @@ class RelationModel extends Model
                 $pk = $this->getPk();
                 $this->_resData = $this->where([$pk => $param[$pk]])->find();
                 $this->successMsg = "Modify {$this->name} items successfully.";
-                return $this->handleReturnData($this->_resData);
+                return $this->handleReturnData(false, $this->_resData);
             }
         } else {
             // 数据验证失败，返回错误
@@ -816,7 +816,7 @@ class RelationModel extends Model
             } else {
                 $pk = $this->getPk();
                 $this->_resData = $this->where([$pk => $data[$pk]])->find();
-                return $this->handleReturnData($this->_resData);
+                return $this->handleReturnData(false, $this->_resData);
             }
         } else {
             // 数据验证失败，返回错误
@@ -869,6 +869,7 @@ class RelationModel extends Model
         }
 
         $findData = $this->find();
+
         if (empty($findData)) {
             $this->error = 'Data does not exist.';
             return [];
@@ -876,7 +877,7 @@ class RelationModel extends Model
 
         // 数据格式化
         if ($needFormat) {
-            return $this->handleReturnData($findData);
+            return $this->handleReturnData(false, $findData);
         } else {
             return $findData;
         }
@@ -945,7 +946,7 @@ class RelationModel extends Model
         // 数据格式化
         if ($needFormat) {
             foreach ($selectData as &$selectItem) {
-                $selectItem = $this->handleReturnData($selectItem);
+                $selectItem = $this->handleReturnData(true, $selectItem);
             }
             return ["total" => $total, "rows" => $selectData];
         } else {
