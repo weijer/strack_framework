@@ -91,6 +91,18 @@ class Model
     protected $_map = array(); // 字段映射定义
     protected $_scope = array(); // 命名范围定义
 
+    // 显示属性
+    protected $visible = [];
+
+    // 隐藏属性
+    protected $hidden = [];
+
+    // 追加属性
+    protected $append = [];
+
+    // 追加自定义字段属性
+    protected $appendCustomField = [];
+
     // 是否自动检测数据表字段信息
     protected $autoCheckFields = true;
 
@@ -1519,6 +1531,10 @@ class Model
                             } else {
                                 $data[$auto[0]] = call_user_func_array(array(&$this, $auto[1]), $args);
                             }
+                            break;
+                        case 'function_with_data':
+                            // 使用函数进行填充，传入数组值和字段名
+                            $data[$auto[0]] = call_user_func_array($auto[1], ['data' => $data, "field" => $auto[0]]);
                             break;
                         case 'field':    // 用其它字段的值进行填充
                             $data[$auto[0]] = $data[$auto[1]];

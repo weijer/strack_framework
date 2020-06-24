@@ -1527,3 +1527,20 @@ if (!function_exists('un_camelize')) {
         return strtolower(preg_replace('/([a-z])([A-Z])/', "$1" . $separator . "$2", $camelCaps));
     }
 }
+
+
+if (!function_exists('is_many_dimension_array')) {
+    /**
+     * 是否是多维数组
+     * @param $array
+     * @return bool
+     */
+    function is_many_dimension_array($array)
+    {
+        if (count($array) == count($array, 1)) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+}
