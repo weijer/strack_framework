@@ -10,6 +10,8 @@
 // +----------------------------------------------------------------------
 namespace think\model;
 
+use common\model\FieldModel;
+use common\model\ModuleRelationModel;
 use think\Model;
 use think\Hook;
 use think\Request;
@@ -868,12 +870,12 @@ class RelationModel extends Model
             $currentDepth = count($currentFilter);
             $currentIndex = 1;
 
+            // 数据索引
             $dictIndex = $depth - 1;
 
             foreach ($currentFilter as $key => $value) {
 
                 if ($index !== ($depth - 1)) {
-
                     if (is_array($value) && is_many_dimension_array($value)) {
                         $index++;
                         $this->parserFilterParam($result, $filter, $value, $depth, $index);
@@ -923,11 +925,103 @@ class RelationModel extends Model
                         if (!array_key_exists('_logic', $result[$dictIndex])) {
                             $result[$dictIndex]['_logic'] = 'AND';
                         }
+
                         $this->parserFilterParam($result, $filter, $filter, $depth - 1, 1);
                     }
                 }
             }
         }
+    }
+
+    /**
+     * 递归处理过滤条件的链路关系
+     * @param $filterModuleLinkRelation
+     * @param $moduleCode
+     */
+    private function recurrenceFilterModuleRelation(&$filterModuleLinkRelation, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId)
+    {
+        // 对于实体和任务特殊关系每层实体下面都可以挂任务
+        $moduleData = Request::$moduleDictData['module_index_by_code'][$moduleCode];
+
+        if (in_array($moduleData['code'], $horizontalModuleList)) {
+            // 判断是否是水平自定义关联模块
+            $filterModuleLinkRelation[$moduleData['code']] = $moduleDictByDstModuleId[$moduleData['id']][0];
+        } else {
+            echo json_encode($moduleData);
+            echo json_encode($moduleDictBySrcModuleId[$moduleData['id']]);
+        }
+
+        //echo json_encode($moduleData);
+        //echo json_encode($moduleDictByDstModuleId);
+    }
+
+    /**
+     * 获取过滤条件的模块关联关系
+     */
+    private function parserFilterModuleRelation()
+    {
+
+        // 获取所有关联模块
+        $moduleRelationModel = new ModuleRelationModel();
+        $moduleRelationData = $moduleRelationModel->field('id,type as relation_type,src_module_id,dst_module_id,link_id')->select();
+
+        // 当前模块的水平关联自定义字段
+        $fieldModel = new FieldModel();
+        $horizontalFieldData = $fieldModel->field('id,table,config')
+            ->where([
+                'type' => 'custom',
+                'is_horizontal' => 1,
+                'module_id' => Request::$moduleDictData['module_index_by_code'][Request::$moduleDictData['current_module_code']]['id']
+            ])
+            ->select();
+
+        // 获取任务与当前模块的关系
+        $moduleDictByDstModuleId = [];
+        $horizontalModuleList = [];
+
+        if (!empty($horizontalFieldData)) {
+            foreach ($horizontalFieldData as $horizontalFieldItem) {
+
+                // 当前水平关联自定义字段配置
+                $horizontalFieldItemConfig = json_decode($horizontalFieldItem['config'], true);
+
+                // 判断当前查询关联模块是存在
+                $dstModuleData = Request::$moduleDictData['module_index_by_id'][$horizontalFieldItemConfig['data_source']['dst_module_id']];
+
+                $moduleDictByDstModuleId[$horizontalFieldItemConfig['data_source']['dst_module_id']][] = [
+                    'type' => 'horizontal', // 自定义关系
+                    'module_code' => $dstModuleData['code'],
+                    'src_module_id' => $horizontalFieldItemConfig['data_source']['src_module_id'],
+                    'dst_module_id' => $horizontalFieldItemConfig['data_source']['dst_module_id'],
+                    'relation_type' => $horizontalFieldItemConfig['data_source']['relation_type'],
+                    'link_id' => $horizontalFieldItemConfig['field']
+                ];
+
+                $horizontalModuleList[] = $dstModuleData['code'];
+            }
+        }
+
+        // 涉及的固定字段模块关系  按照 src_module_id dst_module_id 索引
+        $moduleDictBySrcModuleId = [];
+
+        foreach ($moduleRelationData as $moduleRelationItem) {
+            $moduleRelationItem['type'] = 'fixed';
+
+            $moduleRelationData= Request::$moduleDictData['module_index_by_id'][$moduleRelationItem['dst_module_id']];
+
+            $moduleRelationItem['module_code'] = $moduleRelationData['code'];
+
+            $moduleDictByDstModuleId[$moduleRelationItem['dst_module_id']][] = $moduleRelationItem;
+            $moduleDictBySrcModuleId[$moduleRelationItem['src_module_id']][] = $moduleRelationItem;
+        }
+
+        // 递归处理过滤条件的链路关系
+        $filterModuleLinkRelation = [];
+        foreach (Request::$complexFilterRelatedModule as $moduleCode) {
+            $this->recurrenceFilterModuleRelation($filterModuleLinkRelation, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId);
+        }
+
+        echo json_encode($filterModuleLinkRelation);
     }
 
     /**
@@ -957,16 +1051,9 @@ class RelationModel extends Model
                 }
             }
 
-            echo json_encode($filterReverse);
+            // 处理所有 module relation 链路数据
+            $this->parserFilterModuleRelation();
 
-            die;
-
-            $this->parserFilterParam($filterReverse, $filter);
-
-
-            echo json_encode(Request::$complexFilterRelatedModule);
-
-            echo json_encode($filterReverse);
             die;
         }
 
@@ -1014,7 +1101,8 @@ class RelationModel extends Model
      * @param bool $needFormat
      * @return array
      */
-    public function selectData($options = [], $needFormat = true)
+    public
+    function selectData($options = [], $needFormat = true)
     {
         if (array_key_exists("filter", $options)) {
             // 有过滤条件
@@ -1081,7 +1169,8 @@ class RelationModel extends Model
     /**
      * 获取字段数据源映射
      */
-    private function getFieldFromDataDict()
+    private
+    function getFieldFromDataDict()
     {
         // 用户数据映射
         $allUserData = M("User")->field("id,name")->select();
@@ -1107,7 +1196,8 @@ class RelationModel extends Model
      * @param string $formatMode
      * @return array
      */
-    public function getRelationData($param = [])
+    public
+    function getRelationData($param = [])
     {
 
     }
@@ -1118,7 +1208,8 @@ class RelationModel extends Model
      * @param $groupRule
      * @return string
      */
-    private function buildSortRule($sortRule, $groupRule = [])
+    private
+    function buildSortRule($sortRule, $groupRule = [])
     {
 
     }
@@ -1129,7 +1220,8 @@ class RelationModel extends Model
      * @param $other
      * @return array
      */
-    private function buildFinalFilter($request, $other)
+    private
+    function buildFinalFilter($request, $other)
     {
 
     }
@@ -1139,7 +1231,8 @@ class RelationModel extends Model
      * @param $item
      * @return array
      */
-    public function buildWidgetFilter($item)
+    public
+    function buildWidgetFilter($item)
     {
         switch ($item["editor"]) {
             case "text":
