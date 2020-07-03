@@ -934,25 +934,118 @@ class RelationModel extends Model
     }
 
     /**
+     * 递归处理实体entity路径
+     * @param $result
+     * @param $moduleCode
+     * @param $moduleDictByDstModuleId
+     * @param $moduleDictBySrcModuleId
+     */
+    private function recurrenceEntityChildHierarchy(&$result, $moduleCode, $moduleDictByDstModuleId, $moduleDictBySrcModuleId, $isChild = false)
+    {
+        $moduleData = Request::$moduleDictData['module_index_by_code'][$moduleCode];
+        $masterModuleData = Request::$moduleDictData['module_index_by_code'][Request::$moduleDictData['current_module_code']];
+
+        if ($moduleData['type'] === 'entity') {
+
+            $result = [
+                "belong_module" => $moduleData['code'],
+                "relation_type" => "has_many",
+                "src_module_id" => $moduleData['id'],
+                "dst_module_id" => $masterModuleData['id'],
+                "link_id" => "entity_id,entity_module_id",
+                "type" => "fixed",
+                "module_code" => $masterModuleData['code'],
+                "filter_type" => "entity"
+            ];
+
+            foreach ($moduleDictBySrcModuleId[$moduleData['id']] as $moduleDictSrcItem) {
+                $dstModuleData = Request::$moduleDictData['module_index_by_id'][$moduleDictSrcItem['dst_module_id']];
+                if ($dstModuleData['type'] === 'entity') {
+                    $this->recurrenceEntityChildHierarchy($result['child'], $dstModuleData['code'], $moduleDictByDstModuleId, $moduleDictBySrcModuleId, $isChild = true);
+                    continue;
+                }
+            }
+        }
+    }
+
+    /**
+     * 获取entity模块父子结构
+     * @param $complexFilterRelatedModule
+     * @param $moduleDictBySrcModuleId
+     */
+    private function getEntityParentChildHierarchy($complexFilterRelatedModule, $moduleDictByDstModuleId, $moduleDictBySrcModuleId)
+    {
+        $resultDict = [];
+        foreach ($complexFilterRelatedModule as $moduleCode) {
+            $result = [];
+            $this->recurrenceEntityChildHierarchy($result, $moduleCode, $moduleDictByDstModuleId, $moduleDictBySrcModuleId);
+            if (!empty($result)) {
+                $resultDict[$moduleCode] = $result;
+            }
+        }
+        return $resultDict;
+    }
+
+    /**
+     * 递归处理过滤条件实体的链路关系
+     * @param $data
+     * @param $entityParentChildHierarchyData
+     */
+    private function recurrenceFilterModuleEntityRelation(&$data, $entityParentChildHierarchyData)
+    {
+        $moduleItem = [];
+        foreach ($entityParentChildHierarchyData as $key => $entityParentChildHierarchyItem) {
+            if ($key !== 'child') {
+                $moduleItem[$key] = $entityParentChildHierarchyItem;
+            }
+        }
+
+        $data = $moduleItem;
+        if (array_key_exists('child', $entityParentChildHierarchyData) && !empty($entityParentChildHierarchyData['child'])) {
+            $this->recurrenceFilterModuleEntityRelation($data['child'], $entityParentChildHierarchyData['child']);
+        }
+    }
+
+    /**
      * 递归处理过滤条件的链路关系
      * @param $filterModuleLinkRelation
      * @param $moduleCode
+     * @param $horizontalModuleList
+     * @param $moduleDictBySrcModuleId
+     * @param $moduleDictByDstModuleId
+     * @param $entityParentChildHierarchyData
      */
-    private function recurrenceFilterModuleRelation(&$filterModuleLinkRelation, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId)
+    private function recurrenceFilterModuleRelation(&$filterModuleLinkRelation, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId, $entityParentChildHierarchyData)
     {
         // 对于实体和任务特殊关系每层实体下面都可以挂任务
         $moduleData = Request::$moduleDictData['module_index_by_code'][$moduleCode];
 
         if (in_array($moduleData['code'], $horizontalModuleList)) {
             // 判断是否是水平自定义关联模块
+            $moduleDictByDstModuleId[$moduleData['id']][0]['filter_type'] = 'direct';
             $filterModuleLinkRelation[$moduleData['code']] = $moduleDictByDstModuleId[$moduleData['id']][0];
         } else {
-            echo json_encode($moduleData);
-            echo json_encode($moduleDictBySrcModuleId[$moduleData['id']]);
+            if ($moduleData['type'] === 'entity') {
+                // 实体类型 如果 对方是任务模块需要独立处理，因为每个实体下面都有任务
+                foreach ($moduleDictBySrcModuleId[$moduleData['id']] as $relationModuleItem) {
+                    if (Request::$moduleDictData['module_index_by_code'][Request::$moduleDictData['current_module_code']]['id'] === $relationModuleItem['dst_module_id']) {
+                        $filterModuleLinkEmtityTemp = [];
+                        $this->recurrenceFilterModuleEntityRelation($filterModuleLinkEmtityTemp, $entityParentChildHierarchyData[$moduleData['code']]);
+                        $filterModuleLinkRelation[$moduleData['code']] = $filterModuleLinkEmtityTemp;
+                    }
+                }
+            } else {
+                if ($moduleData['code'] !== Request::$moduleDictData['current_module_code']) {
+                    // 不是当前自己模块
+                    foreach ($moduleDictBySrcModuleId[$moduleData['id']] as $relationModuleItem) {
+                        if ($relationModuleItem['dst_module_id'] === $moduleData['id']) {
+                            $relationModuleItem['filter_type'] = 'direct';
+                            $filterModuleLinkRelation[$moduleData['code']] = $relationModuleItem;
+                        }
+                    }
+                }
+            }
         }
-
-        //echo json_encode($moduleData);
-        //echo json_encode($moduleDictByDstModuleId);
     }
 
     /**
@@ -1006,22 +1099,24 @@ class RelationModel extends Model
 
         foreach ($moduleRelationData as $moduleRelationItem) {
             $moduleRelationItem['type'] = 'fixed';
-
-            $moduleRelationData= Request::$moduleDictData['module_index_by_id'][$moduleRelationItem['dst_module_id']];
-
+            $moduleRelationData = Request::$moduleDictData['module_index_by_id'][$moduleRelationItem['dst_module_id']];
             $moduleRelationItem['module_code'] = $moduleRelationData['code'];
-
             $moduleDictByDstModuleId[$moduleRelationItem['dst_module_id']][] = $moduleRelationItem;
             $moduleDictBySrcModuleId[$moduleRelationItem['src_module_id']][] = $moduleRelationItem;
         }
 
+
+        // 获取entity链路关系
+        $entityParentChildHierarchyData = $this->getEntityParentChildHierarchy(Request::$complexFilterRelatedModule, $moduleDictByDstModuleId, $moduleDictBySrcModuleId);
+
         // 递归处理过滤条件的链路关系
         $filterModuleLinkRelation = [];
         foreach (Request::$complexFilterRelatedModule as $moduleCode) {
-            $this->recurrenceFilterModuleRelation($filterModuleLinkRelation, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId);
+            $this->recurrenceFilterModuleRelation($filterModuleLinkRelation, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId, $entityParentChildHierarchyData);
         }
 
         echo json_encode($filterModuleLinkRelation);
+        die;
     }
 
     /**
