@@ -884,50 +884,56 @@ class RelationModel extends Model
 
                     if ($key !== "_logic") {
 
-                        if (is_array($value) && is_many_dimension_array($value)) {
-                            continue;
-                        }
-
-                        // 把所有相关联模块存下来
-                        $fieldsParam = explode('.', $key);
-                        if (!in_array($fieldsParam[0], Request::$complexFilterRelatedModule)) {
-                            Request::$complexFilterRelatedModule[] = $fieldsParam[0];
-                        }
-
-                        // 按模板分组存储字段信息
-                        if (array_key_exists($dictIndex, $result)) {
-                            if (!array_key_exists($fieldsParam[0], $result[$dictIndex])) {
-                                $result[$dictIndex][$fieldsParam[0]] = [
-                                    $fieldsParam[1] => $value
-                                ];
-                            } else {
-                                $result[$dictIndex][$fieldsParam[0]][$fieldsParam[1]] = $value;
+                        if (!(is_array($value) && is_many_dimension_array($value))) {
+                            // 把所有相关联模块存下来
+                            if (strpos($key, '.') === false) {
+                                throw_strack_exception('The field format must contain a dot symbol.', -400001);
                             }
-                        } else {
-                            $result[$dictIndex] = [
-                                $fieldsParam[0] => [$fieldsParam[1] => $value]
-                            ];
+
+                            $fieldsParam = explode('.', $key);
+                            if (!in_array($fieldsParam[0], Request::$complexFilterRelatedModule)) {
+                                Request::$complexFilterRelatedModule[] = $fieldsParam[0];
+                            }
+
+                            // 按模板分组存储字段信息
+                            if (array_key_exists($dictIndex, $result)) {
+                                if (!array_key_exists($fieldsParam[0], $result[$dictIndex])) {
+                                    $result[$dictIndex][$fieldsParam[0]] = [
+                                        $fieldsParam[1] => $value
+                                    ];
+                                } else {
+                                    $result[$dictIndex][$fieldsParam[0]][$fieldsParam[1]] = $value;
+                                }
+                            } else {
+                                $result[$dictIndex] = [
+                                    $fieldsParam[0] => [$fieldsParam[1] => $value]
+                                ];
+                            }
                         }
 
                     } else {
                         // 逻辑关系
-                        if (array_key_exists($dictIndex, $result)) {
-                            $result[$dictIndex][$key] = $value;
-                        } else {
-                            $result[$dictIndex] = [$key => $value];
+                        if (empty($result[$dictIndex]["_logic"])) {
+                            if (array_key_exists($dictIndex, $result)) {
+                                $result[$dictIndex][$key] = $value;
+                            } else {
+                                $result[$dictIndex] = [$key => $value];
+                            }
                         }
                     }
 
-                    $currentIndex++;
 
                     if ($currentDepth === $currentIndex) {
+
                         // 循环到末尾往上遍历
                         if (!array_key_exists('_logic', $result[$dictIndex])) {
-                            $result[$dictIndex]['_logic'] = 'AND';
+                            $result[$depth - 1]['_logic'] = 'AND';
                         }
 
                         $this->parserFilterParam($result, $filter, $filter, $depth - 1, 1);
                     }
+
+                    $currentIndex++;
                 }
             }
         }
@@ -1050,6 +1056,7 @@ class RelationModel extends Model
 
     /**
      * 获取过滤条件的模块关联关系
+     * @return array
      */
     private function parserFilterModuleRelation()
     {
@@ -1115,16 +1122,91 @@ class RelationModel extends Model
             $this->recurrenceFilterModuleRelation($filterModuleLinkRelation, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId, $entityParentChildHierarchyData);
         }
 
-        echo json_encode($filterModuleLinkRelation);
-        die;
+        return $filterModuleLinkRelation;
     }
 
     /**
-     * @param $val
+     * 格式化过滤条件
+     * @param $filter
+     * @return array
      */
-    private function parserFilterValue($val)
+    private function formatFilterCondition($filter)
     {
+        foreach ($filter as &$condition) {
+            switch (strtolower($condition[0])) {
+                case 'like':
+                    $condition[1] = "%{$condition[1]}%";
+                    break;
+            }
+        }
+        return $filter;
+    }
 
+    /**
+     * 预处理过滤条件项的值 TODO
+     * @param $itemModule
+     * @param $filter
+     */
+    private function parserFilterItemValue($itemModule, $filter)
+    {
+        $filterData = [];
+        switch ($itemModule['filter_type']) {
+            case 'master':
+                break;
+            case 'direct':
+                $class = '\\common\\model\\' . string_initial_letter($itemModule['module_code']) . 'Model';
+                $filterData = (new $class())->where($this->formatFilterCondition($filter))->select();
+                break;
+            case 'entity':
+                break;
+        }
+
+        echo json_encode($filterData);
+    }
+
+    /**
+     * 预处理过滤条件分组项的值
+     * @param $filterGroupItem
+     * @param $count
+     * @param $filterModuleLinkRelation
+     */
+    private function parserFilterGroupValue($filterGroupItem, $count, $filterModuleLinkRelation)
+    {
+        // 一个一个执行
+        for ($index = $count; $index > 0; $index--) {
+            foreach ($filterGroupItem[$index] as $key => $filterItem) {
+                if ($key !== '_logic') {
+                    if ($key === Request::$moduleDictData['current_module_code']) {
+                        // 当前模块
+                        $this->parserFilterItemValue([
+                            "type" => "",
+                            "module_code" => Request::$moduleDictData['current_module_code'],
+                            "relation_type" => "",
+                            "link_id" => "id",
+                            "filter_type" => "master"
+                        ], $filterItem);
+                    } else {
+                        $this->parserFilterItemValue($filterModuleLinkRelation[$key], $filterItem);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 预处理过滤条件值
+     * @param $pretreatmentFilter
+     * @param $filterReverse
+     * @param $filterModuleLinkRelation
+     */
+    private function parserFilterValue(&$pretreatmentFilter, $filterReverse, $filterModuleLinkRelation)
+    {
+        foreach ($filterReverse as $key => $filterGroupItem) {
+            if ($key !== '_logic') {
+                $count = count($filterGroupItem);
+                $this->parserFilterGroupValue($filterGroupItem, $count, $filterModuleLinkRelation);
+            }
+        }
     }
 
     /**
@@ -1146,8 +1228,19 @@ class RelationModel extends Model
                 }
             }
 
+            if (array_key_exists('_logic', $filter)) {
+                $filterReverse['_logic'] = $filter['_logic'];
+            } else {
+                $filterReverse['_logic'] = 'AND';
+            }
+
             // 处理所有 module relation 链路数据
-            $this->parserFilterModuleRelation();
+            $filterModuleLinkRelation = $this->parserFilterModuleRelation();
+
+            // 预处理过滤条件值
+            $pretreatmentFilter = [];
+            $this->parserFilterValue($pretreatmentFilter, $filterReverse, $filterModuleLinkRelation);
+
 
             die;
         }

@@ -167,7 +167,7 @@ if (!function_exists('throw_strack_exception')) {
      * @param array $data
      * @param string $type
      */
-    function throw_strack_exception($msg, $code = -404, $data = [], $type = 'json')
+    function throw_strack_exception($msg, $code = -400000, $data = [], $type = 'json')
     {
         $errorData = [
             "code" => $code,
