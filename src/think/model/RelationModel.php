@@ -1143,25 +1143,150 @@ class RelationModel extends Model
     }
 
     /**
-     * 预处理过滤条件项的值 TODO
+     * 处理过滤条件复杂值
+     * @param $masterModuleCode
+     * @param $itemModule
+     * @param $selectData
+     * @param $idsString
+     * @return array
+     */
+    private function parserFilterItemComplexValue($masterModuleCode, $itemModule, $selectData, $idsString, $isComplex = true)
+    {
+        $filterData = [];
+        if (strpos($itemModule['link_id'], ',') !== false) {
+            $linkIds = explode(',', $itemModule['link_id']);
+            $filterItem = [];
+            foreach ($linkIds as $linkIdKey) {
+                if (strpos($linkIdKey, '_id')) {
+                    if (!empty($selectData)) {
+                        $filterItem["{$masterModuleCode}.{$linkIdKey}"] = ["IN", $idsString];
+                    } else {
+                        $filterItem["{$masterModuleCode}.{$linkIdKey}"] = 0;
+                    }
+                }
+
+                if (strpos($linkIdKey, '_module_id')) {
+                    $filterItem["{$masterModuleCode}.{$linkIdKey}"] = $itemModule['src_module_id'];
+                }
+            }
+
+            if ($isComplex) {
+                $filterData['_complex'] = $filterItem;
+            } else {
+                $filterData = $filterItem;
+            }
+
+        } else {
+            if (!empty($selectData)) {
+                $filterData["{$masterModuleCode}.{$itemModule['link_id']}"] = ["IN", $idsString];
+            } else {
+                $filterData["{$masterModuleCode}.{$itemModule['link_id']}"] = 0;
+            }
+        }
+
+        return $filterData;
+    }
+
+    /**
+     * 预处理实体任务过滤关联
+     * @param $filterData
+     * @param $masterModuleCode
      * @param $itemModule
      * @param $filter
      */
-    private function parserFilterItemValue($itemModule, $filter)
+    private function parserFilterItemEntityTaskRelated(&$filterData, $masterModuleCode, $itemModule, $filter)
+    {
+        $class = '\\common\\model\\EntityModel';
+        $selectData = (new $class())->where($this->formatFilterCondition($filter))->select();
+        if (!empty($selectData)) {
+            $ids = array_column($selectData, 'id');
+            $idsString = join(',', $ids);
+            $filterItemData = $this->parserFilterItemComplexValue($masterModuleCode, $itemModule, $selectData, $idsString, false);
+            if (empty($filterData)) {
+                $filterData = $filterItemData;
+            } else {
+                $newfilterData = [];
+                $newfilterData[] = $filterData;
+                $newfilterData[] = $filterItemData;
+                $newfilterData['_logic'] = 'OR';
+                $filterData = $newfilterData;
+            }
+
+            if (array_key_exists('child', $itemModule)) {
+                $entityFilter = [];
+                foreach ($filterItemData as $filed => $value) {
+                    $filedKey = explode('.', $filed)[1];
+                    $entityFilter[$filedKey] = $value;
+                }
+
+                $this->parserFilterItemEntityTaskRelated($filterData, $masterModuleCode, $itemModule['child'], $entityFilter);
+            }
+        } else {
+            if (empty($filterData)) {
+                $filterData = $this->parserFilterItemComplexValue($masterModuleCode, $itemModule, $selectData, 0, false);
+            }
+        }
+
+        return $filterData;
+    }
+
+    /**
+     * 预处理过滤条件项的值
+     * @param $masterModuleCode
+     * @param $itemModule
+     * @param $filter
+     * @return array
+     */
+    private function parserFilterItemValue($masterModuleCode, $itemModule, $filter)
     {
         $filterData = [];
         switch ($itemModule['filter_type']) {
             case 'master':
+                // 主键查询只需要加上字段别名
+                foreach ($filter as $field => $condition) {
+                    $filterData["{$masterModuleCode}.{$field}"] = $condition;
+                }
                 break;
             case 'direct':
                 $class = '\\common\\model\\' . string_initial_letter($itemModule['module_code']) . 'Model';
-                $filterData = (new $class())->where($this->formatFilterCondition($filter))->select();
+                $selectData = (new $class())->where($this->formatFilterCondition($filter))->select();
+                if (!empty($selectData)) {
+                    $ids = array_column($selectData, 'id');
+                    $idsString = join(',', $ids);
+                } else {
+                    $idsString = 'null';
+                }
+
+                if ($itemModule['type'] === 'horizontal') {
+                    // 水平关联为自定义字段
+                    $filterData['_string'] = "JSON_CONTAINS(json_extract({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ), '[{$idsString}]' )";
+                } else {
+                    // 普通直接查询条件
+                    $filterData = $this->parserFilterItemComplexValue($masterModuleCode, $itemModule, $selectData, $idsString);
+                }
                 break;
             case 'entity':
+                // 只有用entity查询task时候需要特殊处理
+                if ($masterModuleCode === 'task') {
+                    // 得到各个层级的id
+                    $filterEntityTaskData = [];
+                    $filterData['_complex'] = $this->parserFilterItemEntityTaskRelated($filterEntityTaskData, $masterModuleCode, $itemModule, $filter);
+                } else {
+                    $class = '\\common\\model\\' . string_initial_letter($itemModule['module_code']) . 'Model';
+                    $selectData = (new $class())->where($this->formatFilterCondition($filter))->select();
+                    if (!empty($selectData)) {
+                        $ids = array_column($selectData, 'id');
+                        $idsString = join(',', $ids);
+                    } else {
+                        $idsString = 'null';
+                    }
+
+                    $filterData = $this->parserFilterItemComplexValue($masterModuleCode, $itemModule, $selectData, $idsString);
+                }
                 break;
         }
 
-        echo json_encode($filterData);
+        return $filterData;
     }
 
     /**
@@ -1173,24 +1298,54 @@ class RelationModel extends Model
     private function parserFilterGroupValue($filterGroupItem, $count, $filterModuleLinkRelation)
     {
         // 一个一个执行
+        $filter = [];
         for ($index = $count; $index > 0; $index--) {
+            $filterTemp = [];
             foreach ($filterGroupItem[$index] as $key => $filterItem) {
                 if ($key !== '_logic') {
                     if ($key === Request::$moduleDictData['current_module_code']) {
                         // 当前模块
-                        $this->parserFilterItemValue([
+                        $filterTempItem = $this->parserFilterItemValue(Request::$moduleDictData['current_module_code'], [
                             "type" => "",
                             "module_code" => Request::$moduleDictData['current_module_code'],
                             "relation_type" => "",
+                            "src_module_id" => Request::$moduleDictData['module_index_by_code'][Request::$moduleDictData['current_module_code']]['id'],
+                            "dst_module_id" => 0,
                             "link_id" => "id",
                             "filter_type" => "master"
                         ], $filterItem);
                     } else {
-                        $this->parserFilterItemValue($filterModuleLinkRelation[$key], $filterItem);
+                        $filterTempItem = $this->parserFilterItemValue(Request::$moduleDictData['current_module_code'], $filterModuleLinkRelation[$key], $filterItem);
+                    }
+
+                    if (array_key_exists('_complex', $filterTempItem)) {
+                        $filterTemp['_complex'] = $filterTempItem['_complex'];
+                    } else if (array_key_exists('_string', $filterTempItem)) {
+                        $filterTemp['_string'] = $filterTempItem['_string'];
+                    } else {
+                        $filterTemp[] = $filterTempItem;
                     }
                 }
             }
+            if (array_key_exists('_logic', $filterGroupItem[$index])) {
+                $logic = $filterGroupItem[$index]['_logic'];
+            } else {
+                $logic = 'AND';
+            }
+
+            if (empty($filter)) {
+                $filterTemp['_logic'] = $logic;
+                $filter = $filterTemp;
+            } else {
+                $filterMid = $filter;
+                $filter = [];
+                $filter[] = $filterMid;
+                $filter[] = $filterTemp;
+                $filter['_logic'] = $logic;
+            }
         }
+
+        return $filter;
     }
 
     /**
@@ -1201,17 +1356,25 @@ class RelationModel extends Model
      */
     private function parserFilterValue(&$pretreatmentFilter, $filterReverse, $filterModuleLinkRelation)
     {
+        $filter = [];
         foreach ($filterReverse as $key => $filterGroupItem) {
             if ($key !== '_logic') {
                 $count = count($filterGroupItem);
-                $this->parserFilterGroupValue($filterGroupItem, $count, $filterModuleLinkRelation);
+                $filter[] = $this->parserFilterGroupValue($filterGroupItem, $count, $filterModuleLinkRelation);
             }
+        }
+
+        if (array_key_exists('_logic', $filterReverse)) {
+            $filter['_logic'] = $filterReverse['_logic'];
+        } else {
+            $filter['_logic'] = 'AND';
         }
     }
 
     /**
      * 处理过滤条件
      * @param $filter
+     * @return array
      */
     private function buildFilter($filter)
     {
@@ -1241,8 +1404,7 @@ class RelationModel extends Model
             $pretreatmentFilter = [];
             $this->parserFilterValue($pretreatmentFilter, $filterReverse, $filterModuleLinkRelation);
 
-
-            die;
+            return $pretreatmentFilter;
         }
 
         return $filter;
@@ -1289,13 +1451,17 @@ class RelationModel extends Model
      * @param bool $needFormat
      * @return array
      */
-    public
-    function selectData($options = [], $needFormat = true)
+    public function selectData($options = [], $needFormat = true)
     {
         if (array_key_exists("filter", $options)) {
             // 有过滤条件
+            $this->alias('task');
             $this->where($this->buildFilter($options["filter"]));
+            $data = $this->select();
+            echo json_encode($data);
         }
+
+        die;
 
         // 统计个数
         $total = $this->count();
