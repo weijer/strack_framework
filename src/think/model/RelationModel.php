@@ -1403,7 +1403,7 @@ class RelationModel extends Model
 
     /**
      * 处理过滤条件
-     * @param $filter
+     * @param $filterfields
      * @return array
      */
     private function buildFilter($filter, $fields)
@@ -1432,6 +1432,9 @@ class RelationModel extends Model
                 $filterReverse['_logic'] = 'AND';
             }
 
+            echo 3333;
+            die;
+
             // 处理所有 module relation 链路数据
             $filterModuleLinkRelation = $this->parserFilterModuleRelation();
 
@@ -1452,35 +1455,40 @@ class RelationModel extends Model
      */
     public function buildFields($field)
     {
-        // 处理所有 module relation 链路数据
-        $filterModuleLinkRelation = $this->parserFilterModuleRelation();
+        if (Request::$isComplexFilter) {
+            // 处理所有 module relation 链路数据
+            $filterModuleLinkRelation = $this->parserFilterModuleRelation();
 
-        $fieldsArr = explode(',', $field);
-        $masterModuleCode = Request::$moduleDictData['current_module_code'];
+            $fieldsArr = explode(',', $field);
+            $masterModuleCode = Request::$moduleDictData['current_module_code'];
 
-        $newFields = [];
-        if (strpos($field, '.') !== false) {
-            foreach ($fieldsArr as $fieldItem) {
-                // 找的可以belong_to的字段
-                $moduleArray = explode('.', $fieldItem);
-                if ($masterModuleCode !== $moduleArray[0]) {
-                    if ($filterModuleLinkRelation[$moduleArray[0]]['filter_type'] === "direct" &&
-                        $filterModuleLinkRelation[$moduleArray[0]]['relation_type'] === "belong_to") {
-                        $newFields[] = "{$fieldItem} as {$moduleArray[0]}_{$moduleArray[1]}";
-                        $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+            $newFields = [];
+            if (strpos($field, '.') !== false) {
+                foreach ($fieldsArr as $fieldItem) {
+                    // 找的可以belong_to的字段
+                    $moduleArray = explode('.', $fieldItem);
+                    if ($masterModuleCode !== $moduleArray[0]) {
+                        if ($filterModuleLinkRelation[$moduleArray[0]]['filter_type'] === "direct" &&
+                            $filterModuleLinkRelation[$moduleArray[0]]['relation_type'] === "belong_to") {
+                            $newFields[] = "{$fieldItem} as {$moduleArray[0]}_{$moduleArray[1]}";
+                            $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                        }
+                    } else {
+                        $newFields[] = $fieldItem;
                     }
-                } else {
-                    $newFields[] = $fieldItem;
+                }
+            } else {
+                // 仅查询主表字段，但需要复杂查询
+                foreach ($fieldsArr as $fieldItem) {
+                    $newFields[] = "{$masterModuleCode}.{$fieldItem}";
                 }
             }
-        } else if (Request::$isComplexFilter) {
-            // 仅查询主表字段，但需要复杂查询
-            foreach ($fieldsArr as $fieldItem) {
-                $newFields[] = "{$masterModuleCode}.{$fieldItem}";
-            }
+
+
+            return join(',', $newFields);
         }
 
-        return join(',', $newFields);
+        return $field;
     }
 
 
@@ -1534,7 +1542,8 @@ class RelationModel extends Model
         $filter = [];
         if (array_key_exists("filter", $options)) {
             // 有过滤条件
-            $filter = $this->buildFilter($options["filter"], $options["fields"]);
+            $fields = !empty($options["fields"]) ? $options["fields"] : [];
+            $filter = $this->buildFilter($options["filter"], $fields);
             $this->where($filter);
         }
 
