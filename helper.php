@@ -167,7 +167,7 @@ if (!function_exists('throw_strack_exception')) {
      * @param array $data
      * @param string $type
      */
-    function throw_strack_exception($msg, $code = -404, $data = [], $type = 'json')
+    function throw_strack_exception($msg, $code = -400000, $data = [], $type = 'json')
     {
         $errorData = [
             "code" => $code,
@@ -1542,5 +1542,26 @@ if (!function_exists('is_many_dimension_array')) {
         } else {
             return true;
         }
+    }
+}
+
+if (!function_exists('array_depth')) {
+    /**
+     * 计算数组深度
+     * @param $array
+     * @return int
+     */
+    function array_depth($array)
+    {
+        $max_depth = 1;
+        foreach ($array as $value) {
+            if (is_array($value)) {
+                $depth = array_depth($value) + 1;
+                if ($depth > $max_depth) {
+                    $max_depth = $depth;
+                }
+            }
+        }
+        return $max_depth;
     }
 }

@@ -128,6 +128,11 @@ class Request
     // 模块数据
     public static $moduleDictData = [];
 
+    // 是否是复杂过滤条件
+    public static $isComplexFilter = false;
+
+    // 复杂过滤条件涉及到的关联模块
+    public static $complexFilterRelatedModule = [];
 
     /**
      * 构造函数
@@ -1110,9 +1115,11 @@ class Request
      * 替换过滤条件中的方法名
      * @param $val
      */
-    public function parserFilterCondition(&$val)
+    public function parserFilterCondition(&$val, $key)
     {
         $map = [
+            '-or' => 'OR', // 或者
+            '-and' => 'AND', // 且
             '-eq' => 'EQ', // 等于
             '-neq' => 'NEQ', // 不等于
             '-gt' => 'GT', // 大于
@@ -1126,6 +1133,12 @@ class Request
             '-in' => 'IN', // 在里面
             '-not-in' => 'NOT IN' // 不在里面
         ];
+
+        if (strpos($val, '.') !== false) {
+            // 是复杂过滤条件
+            self::$isComplexFilter = true;
+        }
+
         if (array_key_exists($val, $map)) {
             $val = $map[$val];
         }
