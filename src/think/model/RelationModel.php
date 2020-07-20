@@ -980,6 +980,7 @@ class RelationModel extends Model
 
                     } else {
                         // 逻辑关系
+
                         if (empty($result[$dictIndex]["_logic"])) {
                             if (array_key_exists($dictIndex, $result)) {
                                 $result[$dictIndex][$key] = $value;
@@ -994,7 +995,7 @@ class RelationModel extends Model
 
                         // 循环到末尾往上遍历
                         if (!array_key_exists('_logic', $result[$dictIndex])) {
-                            $result[$depth - 1]['_logic'] = 'AND';
+                            $result[$dictIndex]['_logic'] = 'AND';
                         }
 
                         $this->parserFilterParam($result, $filter, $filter, $depth - 1, 1);
@@ -1402,6 +1403,7 @@ class RelationModel extends Model
                     }
                 }
             }
+
             if (array_key_exists('_logic', $filterGroupItem[$index])) {
                 $logic = $filterGroupItem[$index]['_logic'];
             } else {
@@ -1450,7 +1452,13 @@ class RelationModel extends Model
         $filter = [];
         foreach ($filterReverse as $key => $filterGroupItem) {
             if ($key !== '_logic') {
-                $count = count($filterGroupItem) - 1;
+
+                if (array_key_exists('_logic', $filterGroupItem)) {
+                    $count = count($filterGroupItem) - 1;
+                } else {
+                    $count = count($filterGroupItem);
+                }
+
                 $filter[] = $this->parserFilterGroupValue($filterGroupItem, $count, $filterModuleLinkRelation);
             }
         }
