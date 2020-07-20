@@ -60,6 +60,18 @@ class RelationModel extends Model
     // 查询需要作join查询的模块
     protected $queryModuleLfetJoinRelation = [];
 
+    // 是否是复杂过滤条件
+    protected $isComplexFilter = false;
+
+    // 当前模块code
+    protected $currentModuleCode = '';
+
+    public function __construct($name = '', $tablePrefix = '', $connection = '')
+    {
+        parent::__construct($name, $tablePrefix, $connection);
+        $this->currentModuleCode = to_under_score($this->name);
+    }
+
     /**
      * 动态方法实现
      * @access public
@@ -699,6 +711,57 @@ class RelationModel extends Model
     }
 
     /**
+     * @param $newReturnData
+     * @param $field
+     * @param $value
+     */
+    private function parsehandleReturnComplexData(&$newReturnData, $field, $value)
+    {
+        $fieldArray = explode('__', $field);
+        if (
+            $fieldArray[0] === $this->currentModuleCode ||
+            (!empty($this->queryModuleLfetJoinRelation[$fieldArray[0]]) && $this->queryModuleLfetJoinRelation[$fieldArray[0]]['relation_type'] === 'belong_to')
+        ) {
+
+            if (array_key_exists($fieldArray[0], $newReturnData)) {
+                $newReturnData[$fieldArray[0]][$fieldArray[1]] = $value;
+            } else {
+                $newReturnData[$fieldArray[0]] = [$fieldArray[1] => $value];
+            }
+        } else {
+            $newReturnData[$field] = $value;
+        }
+
+        return $newReturnData;
+    }
+
+    /**
+     * 处理复杂查询数据
+     * @param $queryData
+     * @param string $type
+     * @return array
+     */
+    private function handleReturnComplexData($queryData, $type = 'find')
+    {
+        if ($type === 'find') {
+            $newReturnData = [];
+            foreach ($queryData as $field => $value) {
+                $this->parsehandleReturnComplexData($newReturnData, $field, $value);
+            }
+        } else {
+            foreach ($queryData as $queryItem) {
+                $newReturnItem = [];
+                foreach ($queryItem as $field => $value) {
+                    $this->parsehandleReturnComplexData($newReturnItem, $field, $value);
+                }
+                $newReturnData[] = $newReturnItem;
+            }
+        }
+
+        return $newReturnData;
+    }
+
+    /**
      * 处理返回数据
      * @param $data
      * @param bool $first
@@ -713,8 +776,6 @@ class RelationModel extends Model
         if ($first && is_many_dimension_array($this->data)) {
             $item = [];
             foreach ($this->data as $value) {
-
-
                 $this->data = $value;
                 $item[] = $this->handleReturnData(false);
             }
@@ -877,11 +938,10 @@ class RelationModel extends Model
             $currentIndex = 1;
 
             // 数据索引
-            $dictIndex = $depth - 1;
+            $dictIndex = $depth > 1 ? (string)($depth - 1) : (string)$depth;
 
             foreach ($currentFilter as $key => $value) {
-
-                if ($index !== ($depth - 1)) {
+                if ($depth !== 1 && ($index !== ($depth - 1))) {
                     if (is_array($value) && is_many_dimension_array($value)) {
                         $index++;
                         $this->parserFilterParam($result, $filter, $value, $depth, $index);
@@ -891,6 +951,7 @@ class RelationModel extends Model
                     if ($key !== "_logic") {
 
                         if (!(is_array($value) && is_many_dimension_array($value))) {
+
                             // 把所有相关联模块存下来
                             if (strpos($key, '.') === false) {
                                 throw_strack_exception('The field format must contain a dot symbol.', -400001);
@@ -955,7 +1016,7 @@ class RelationModel extends Model
     private function recurrenceEntityChildHierarchy(&$result, $moduleCode, $moduleDictByDstModuleId, $moduleDictBySrcModuleId, $isChild = false)
     {
         $moduleData = Request::$moduleDictData['module_index_by_code'][$moduleCode];
-        $masterModuleData = Request::$moduleDictData['module_index_by_code'][Request::$moduleDictData['current_module_code']];
+        $masterModuleData = Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode];
 
         if ($moduleData['type'] === 'entity') {
 
@@ -1040,14 +1101,14 @@ class RelationModel extends Model
             if ($moduleData['type'] === 'entity') {
                 // 实体类型 如果 对方是任务模块需要独立处理，因为每个实体下面都有任务
                 foreach ($moduleDictBySrcModuleId[$moduleData['id']] as $relationModuleItem) {
-                    if (Request::$moduleDictData['module_index_by_code'][Request::$moduleDictData['current_module_code']]['id'] === $relationModuleItem['dst_module_id']) {
+                    if (Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id'] === $relationModuleItem['dst_module_id']) {
                         $filterModuleLinkEmtityTemp = [];
                         $this->recurrenceFilterModuleEntityRelation($filterModuleLinkEmtityTemp, $entityParentChildHierarchyData[$moduleData['code']]);
                         $filterModuleLinkRelation[$moduleData['code']] = $filterModuleLinkEmtityTemp;
                     }
                 }
             } else {
-                if ($moduleData['code'] !== Request::$moduleDictData['current_module_code']) {
+                if ($moduleData['code'] !== $this->currentModuleCode) {
 
                     // 不是当前自己模块
                     foreach ($moduleDictByDstModuleId[$moduleData['id']] as $relationModuleItem) {
@@ -1081,7 +1142,7 @@ class RelationModel extends Model
             ->where([
                 'type' => 'custom',
                 'is_horizontal' => 1,
-                'module_id' => Request::$moduleDictData['module_index_by_code'][Request::$moduleDictData['current_module_code']]['id']
+                'module_id' => Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id']
             ])
             ->select();
 
@@ -1312,23 +1373,24 @@ class RelationModel extends Model
     {
         // 一个一个执行
         $filter = [];
+
         for ($index = $count; $index > 0; $index--) {
             $filterTemp = [];
             foreach ($filterGroupItem[$index] as $key => $filterItem) {
                 if ($key !== '_logic') {
-                    if ($key === Request::$moduleDictData['current_module_code']) {
+                    if ($key === $this->currentModuleCode) {
                         // 当前模块
-                        $filterTempItem = $this->parserFilterItemValue(Request::$moduleDictData['current_module_code'], [
+                        $filterTempItem = $this->parserFilterItemValue($this->currentModuleCode, [
                             "type" => "",
-                            "module_code" => Request::$moduleDictData['current_module_code'],
+                            "module_code" => $this->currentModuleCode,
                             "relation_type" => "",
-                            "src_module_id" => Request::$moduleDictData['module_index_by_code'][Request::$moduleDictData['current_module_code']]['id'],
+                            "src_module_id" => Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id'],
                             "dst_module_id" => 0,
                             "link_id" => "id",
                             "filter_type" => "master"
                         ], $filterItem);
                     } else {
-                        $filterTempItem = $this->parserFilterItemValue(Request::$moduleDictData['current_module_code'], $filterModuleLinkRelation[$key], $filterItem);
+                        $filterTempItem = $this->parserFilterItemValue($this->currentModuleCode, $filterModuleLinkRelation[$key], $filterItem);
                     }
 
                     if (array_key_exists('_complex', $filterTempItem)) {
@@ -1357,7 +1419,6 @@ class RelationModel extends Model
                 $filter['_logic'] = $logic;
             }
         }
-
         return $filter;
     }
 
@@ -1389,7 +1450,7 @@ class RelationModel extends Model
         $filter = [];
         foreach ($filterReverse as $key => $filterGroupItem) {
             if ($key !== '_logic') {
-                $count = count($filterGroupItem);
+                $count = count($filterGroupItem) - 1;
                 $filter[] = $this->parserFilterGroupValue($filterGroupItem, $count, $filterModuleLinkRelation);
             }
         }
@@ -1399,6 +1460,29 @@ class RelationModel extends Model
         } else {
             $filter['_logic'] = 'AND';
         }
+
+        return $filter;
+    }
+
+    /**
+     * 处理第一层过滤条件键值
+     * @param $filter
+     * @return array
+     */
+    private function parseComplexFilterKey($filter)
+    {
+        $newFilter = [];
+        $index = 1;
+        foreach ($filter as $filterKey => $filterVal) {
+            if ($filterKey === 0 || (int)$filterKey > 0) {
+                $newFilter[(string)($filterKey + 1)] = $filterVal;
+            } else {
+                $newFilter[(string)$index] = [$filterKey => $filterVal];
+            }
+            $index++;
+        }
+
+        return $newFilter;
     }
 
     /**
@@ -1408,9 +1492,11 @@ class RelationModel extends Model
      */
     private function buildFilter($filter, $fields)
     {
-        if (Request::$isComplexFilter) {
+        if ($this->isComplexFilter) {
             // 复杂过滤条件处理
             $filterReverse = [];
+
+            $filter = $this->parseComplexFilterKey($filter);
 
             foreach ($filter as $filterKey => $filterVal) {
                 if (is_array($filterVal)) {
@@ -1421,29 +1507,22 @@ class RelationModel extends Model
                 }
             }
 
-            // 处理查询字段
-            if (!empty($fields)) {
-                $this->parserFieldModule($fields);
-            }
-
             if (array_key_exists('_logic', $filter)) {
                 $filterReverse['_logic'] = $filter['_logic'];
             } else {
                 $filterReverse['_logic'] = 'AND';
             }
 
-            echo 3333;
-            die;
-
             // 处理所有 module relation 链路数据
             $filterModuleLinkRelation = $this->parserFilterModuleRelation();
 
             // 预处理过滤条件值
             $pretreatmentFilter = [];
-            $this->parserFilterValue($pretreatmentFilter, $filterReverse, $filterModuleLinkRelation);
+            $complexFilter = $this->parserFilterValue($pretreatmentFilter, $filterReverse, $filterModuleLinkRelation);
 
-            return $pretreatmentFilter;
+            return $complexFilter;
         }
+
 
         return $filter;
     }
@@ -1455,32 +1534,31 @@ class RelationModel extends Model
      */
     public function buildFields($field)
     {
-        if (Request::$isComplexFilter) {
+        if ($this->isComplexFilter) {
             // 处理所有 module relation 链路数据
             $filterModuleLinkRelation = $this->parserFilterModuleRelation();
 
             $fieldsArr = explode(',', $field);
-            $masterModuleCode = Request::$moduleDictData['current_module_code'];
 
             $newFields = [];
             if (strpos($field, '.') !== false) {
                 foreach ($fieldsArr as $fieldItem) {
                     // 找的可以belong_to的字段
                     $moduleArray = explode('.', $fieldItem);
-                    if ($masterModuleCode !== $moduleArray[0]) {
+                    if ($this->currentModuleCode !== $moduleArray[0]) {
                         if ($filterModuleLinkRelation[$moduleArray[0]]['filter_type'] === "direct" &&
                             $filterModuleLinkRelation[$moduleArray[0]]['relation_type'] === "belong_to") {
-                            $newFields[] = "{$fieldItem} as {$moduleArray[0]}_{$moduleArray[1]}";
+                            $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
                             $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
                         }
                     } else {
-                        $newFields[] = $fieldItem;
+                        $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
                     }
                 }
             } else {
                 // 仅查询主表字段，但需要复杂查询
                 foreach ($fieldsArr as $fieldItem) {
-                    $newFields[] = "{$masterModuleCode}.{$fieldItem}";
+                    $newFields[] = "{$this->currentModuleCode}.{$fieldItem}";
                 }
             }
 
@@ -1489,6 +1567,82 @@ class RelationModel extends Model
         }
 
         return $field;
+    }
+
+    /**
+     * 判断是否是复杂过滤条件
+     * @param $options
+     */
+    private function checkIsComplexFilter($options)
+    {
+        if (!empty($options)) {
+            array_walk_recursive($options, [$this, 'checkIsComplexFilterFields']);
+
+            // 处理查询字段
+            if (!empty($options['fields'])) {
+                $this->parserFieldModule($options['fields']);
+            }
+        }
+    }
+
+    /**
+     * 替换过滤条件中的方法名
+     * @param $val
+     */
+    private function checkIsComplexFilterFields(&$val, $key)
+    {
+        if (strpos($val, '.') !== false) {
+            // 是复杂过滤条件
+            $this->isComplexFilter = true;
+        }
+    }
+
+
+    /**
+     * 处理关联查询jion sql 组装
+     */
+    private function parseQueryRelationDataJoinSql()
+    {
+        if (!empty($this->queryModuleLfetJoinRelation)) {
+            // left join
+            foreach ($this->queryModuleLfetJoinRelation as $joinMoudleCode => $joinItem) {
+                $linkIds = explode(',', $joinItem['link_id']);
+
+                $queryJoin = [
+                    'type' => 'one',
+                    'condition' => []
+                ];
+
+                foreach ($linkIds as $linkId) {
+                    if (strpos($linkId, 'module_id') !== false) {
+                        if ($this->currentModuleCode === 'task') {
+                            $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$this->currentModuleCode}.entity_module_id";
+                        } else {
+                            $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$this->currentModuleCode}.{$linkId}";
+                        }
+                    } else {
+                        if ($linkId) {
+                            if (in_array($linkId, ['assignee', 'executor', 'created_by'])) {
+                                // 需要分为多个join
+                                $queryJoin['type'] = 'multiple';
+                            }
+                            $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$this->currentModuleCode}.{$linkId}";
+                        }
+                    }
+                }
+
+                if ($queryJoin['type'] === 'one') {
+                    $conditionString = join('AND', $queryJoin['condition']);
+                    substr($conditionString, 0, -strlen('AND'));
+                    $this->join("LEFT JOIN {$joinItem['module_code']} ON {$conditionString}");
+                } else {
+                    foreach ($queryJoin['condition'] as $conditionItem) {
+                        $this->join("LEFT JOIN {$joinItem['module_code']} ON {$conditionItem}");
+                    }
+                }
+            }
+        }
+        return $this;
     }
 
 
@@ -1500,15 +1654,27 @@ class RelationModel extends Model
      */
     public function findData($options = [], $needFormat = true)
     {
+        $this->checkIsComplexFilter($options);
+
+        if ($this->isComplexFilter) {
+            $this->alias($this->currentModuleCode);
+        }
+
         if (array_key_exists("fields", $options)) {
             // 有字段参数
-            $this->field($options["fields"]);
+            $this->field($this->buildFields($options["fields"]));
         }
 
         if (array_key_exists("filter", $options)) {
             //有过滤条件
-            $this->where($options["filter"]);
+            $fields = !empty($options["fields"]) ? $options["fields"] : [];
+            $filter = $this->buildFilter($options["filter"], $fields);
+
+            $this->where($filter);
         }
+
+        // 处理join查询
+        $this->parseQueryRelationDataJoinSql();
 
         $findData = $this->find();
 
@@ -1519,7 +1685,11 @@ class RelationModel extends Model
 
         // 数据格式化
         if ($needFormat) {
-            return $this->handleReturnData(false, $findData);
+            if ($this->isComplexFilter) {
+                return $this->handleReturnComplexData($findData, 'find');
+            } else {
+                return $this->handleReturnData(false, $findData);
+            }
         } else {
             return $findData;
         }
@@ -1534,9 +1704,11 @@ class RelationModel extends Model
      */
     public function selectData($options = [], $needFormat = true)
     {
-        if (Request::$isComplexFilter) {
-            $this->alias('task');
-            $masterModuleCode = Request::$moduleDictData['current_module_code'];
+
+        $this->checkIsComplexFilter($options);
+
+        if ($this->isComplexFilter) {
+            $this->alias($this->currentModuleCode);
         }
 
         $filter = [];
@@ -1544,6 +1716,7 @@ class RelationModel extends Model
             // 有过滤条件
             $fields = !empty($options["fields"]) ? $options["fields"] : [];
             $filter = $this->buildFilter($options["filter"], $fields);
+
             $this->where($filter);
         }
 
@@ -1558,45 +1731,8 @@ class RelationModel extends Model
                 $this->field($this->buildFields($options["fields"]));
             }
 
-            if (!empty($this->queryModuleLfetJoinRelation)) {
-                // left join
-                foreach ($this->queryModuleLfetJoinRelation as $joinMoudleCode => $joinItem) {
-                    $linkIds = explode(',', $joinItem['link_id']);
-
-                    $queryJoin = [
-                        'type' => 'one',
-                        'condition' => []
-                    ];
-
-                    foreach ($linkIds as $linkId) {
-                        if (strpos($linkId, 'module_id') !== false) {
-                            if ($masterModuleCode === 'task') {
-                                $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$masterModuleCode}.entity_module_id";
-                            } else {
-                                $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$masterModuleCode}.{$linkId}";
-                            }
-                        } else {
-                            if ($linkId) {
-                                if (in_array($linkId, ['assignee', 'executor', 'created_by'])) {
-                                    // 需要分为多个join
-                                    $queryJoin['type'] = 'multiple';
-                                }
-                                $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$masterModuleCode}.{$linkId}";
-                            }
-                        }
-                    }
-
-                    if ($queryJoin['type'] === 'one') {
-                        $conditionString = join('AND', $queryJoin['condition']);
-                        substr($conditionString, 0, -strlen('AND'));
-                        $this->join("LEFT JOIN {$joinItem['module_code']} ON {$conditionString}");
-                    } else {
-                        foreach ($queryJoin['condition'] as $conditionItem) {
-                            $this->join("LEFT JOIN {$joinItem['module_code']} ON {$conditionItem}");
-                        }
-                    }
-                }
-            }
+            // 处理join查询
+            $this->parseQueryRelationDataJoinSql();
 
             if (array_key_exists("filter", $options)) {
                 // 有过滤条件
@@ -1634,9 +1770,15 @@ class RelationModel extends Model
 
         // 数据格式化
         if ($needFormat) {
-            foreach ($selectData as &$selectItem) {
-                $selectItem = $this->handleReturnData(false, $selectItem);
+
+            if ($this->isComplexFilter) {
+                $selectData = $this->handleReturnComplexData($selectData, 'select');
+            } else {
+                foreach ($selectData as &$selectItem) {
+                    $selectItem = $this->handleReturnData(false, $selectItem);
+                }
             }
+
             return ["total" => $total, "rows" => $selectData];
         } else {
             return ["total" => $total, "rows" => $selectData];
@@ -1647,8 +1789,7 @@ class RelationModel extends Model
     /**
      * 获取字段数据源映射
      */
-    private
-    function getFieldFromDataDict()
+    private function getFieldFromDataDict()
     {
         // 用户数据映射
         $allUserData = M("User")->field("id,name")->select();
@@ -1674,8 +1815,7 @@ class RelationModel extends Model
      * @param string $formatMode
      * @return array
      */
-    public
-    function getRelationData($param = [])
+    public function getRelationData($param = [])
     {
 
     }
@@ -1686,8 +1826,7 @@ class RelationModel extends Model
      * @param $groupRule
      * @return string
      */
-    private
-    function buildSortRule($sortRule, $groupRule = [])
+    private function buildSortRule($sortRule, $groupRule = [])
     {
 
     }
@@ -1698,8 +1837,7 @@ class RelationModel extends Model
      * @param $other
      * @return array
      */
-    private
-    function buildFinalFilter($request, $other)
+    private function buildFinalFilter($request, $other)
     {
 
     }
@@ -1709,8 +1847,7 @@ class RelationModel extends Model
      * @param $item
      * @return array
      */
-    public
-    function buildWidgetFilter($item)
+    public function buildWidgetFilter($item)
     {
         switch ($item["editor"]) {
             case "text":

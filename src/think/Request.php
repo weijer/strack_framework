@@ -128,9 +128,6 @@ class Request
     // 模块数据
     public static $moduleDictData = [];
 
-    // 是否是复杂过滤条件
-    public static $isComplexFilter = false;
-
     // 复杂过滤条件涉及到的关联模块
     public static $complexFilterRelatedModule = [];
 
@@ -1133,11 +1130,6 @@ class Request
             '-in' => 'IN', // 在里面
             '-not-in' => 'NOT IN' // 不在里面
         ];
-
-        if (strpos($val, '.') !== false) {
-            // 是复杂过滤条件
-            self::$isComplexFilter = true;
-        }
 
         if (array_key_exists($val, $map)) {
             $val = $map[$val];
