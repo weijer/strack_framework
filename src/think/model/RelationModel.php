@@ -850,6 +850,7 @@ class RelationModel extends Model
                 if ($result === 0) {
                     // 没有数据被更新
                     $this->error = 'No data has been changed.';
+                    $this->errorCode = -411112;
                     return false;
                 } else {
                     return false;
@@ -1125,9 +1126,10 @@ class RelationModel extends Model
 
     /**
      * 获取过滤条件的模块关联关系
+     * @param bool $allModuleBack
      * @return array
      */
-    private function parserFilterModuleRelation()
+    public function parserFilterModuleRelation($allModuleBack = false)
     {
         if (!empty($this->queryModuleRelation)) {
             return $this->queryModuleRelation;
@@ -1184,13 +1186,23 @@ class RelationModel extends Model
             $moduleDictBySrcModuleId[$moduleRelationItem['src_module_id']][] = $moduleRelationItem;
         }
 
-
+        $queryModuleList = [];
+        if ($allModuleBack) {
+            // 取所有关联模块
+            $queryModuleList = $horizontalModuleList;
+            foreach ($moduleDictBySrcModuleId[Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id']] as $fixedModuleItem) {
+                $queryModuleList[] = $fixedModuleItem['module_code'];
+            }
+        } else {
+            $queryModuleList = Request::$complexFilterRelatedModule;
+        }
+        
         // 获取entity链路关系
-        $entityParentChildHierarchyData = $this->getEntityParentChildHierarchy(Request::$complexFilterRelatedModule, $moduleDictByDstModuleId, $moduleDictBySrcModuleId);
+        $entityParentChildHierarchyData = $this->getEntityParentChildHierarchy($queryModuleList, $moduleDictByDstModuleId, $moduleDictBySrcModuleId);
 
         // 递归处理过滤条件的链路关系
         $filterModuleLinkRelation = [];
-        foreach (Request::$complexFilterRelatedModule as $moduleCode) {
+        foreach ($queryModuleList as $moduleCode) {
             $this->recurrenceFilterModuleRelation($filterModuleLinkRelation, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId, $entityParentChildHierarchyData);
         }
 
