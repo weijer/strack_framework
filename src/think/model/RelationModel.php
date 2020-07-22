@@ -60,6 +60,9 @@ class RelationModel extends Model
     // 查询需要作join查询的模块
     protected $queryModuleLfetJoinRelation = [];
 
+    // 临时存储当前模块字段映射数据
+    protected $queryModuleFieldDict = [];
+
     // 是否是复杂过滤条件
     protected $isComplexFilter = false;
 
@@ -942,6 +945,7 @@ class RelationModel extends Model
             $dictIndex = $depth > 1 ? (string)($depth - 1) : (string)$depth;
 
             foreach ($currentFilter as $key => $value) {
+
                 if ($depth !== 1 && ($index !== ($depth - 1))) {
                     if (is_array($value) && is_many_dimension_array($value)) {
                         $index++;
@@ -967,14 +971,14 @@ class RelationModel extends Model
                             if (array_key_exists($dictIndex, $result)) {
                                 if (!array_key_exists($fieldsParam[0], $result[$dictIndex])) {
                                     $result[$dictIndex][$fieldsParam[0]] = [
-                                        $fieldsParam[1] => $value
+                                        $fieldsParam[1] => $this->buildWidgetFilter($fieldsParam[0], $fieldsParam[1], $value)
                                     ];
                                 } else {
-                                    $result[$dictIndex][$fieldsParam[0]][$fieldsParam[1]] = $value;
+                                    $result[$dictIndex][$fieldsParam[0]][$fieldsParam[1]] = $this->buildWidgetFilter($fieldsParam[0], $fieldsParam[1], $value);
                                 }
                             } else {
                                 $result[$dictIndex] = [
-                                    $fieldsParam[0] => [$fieldsParam[1] => $value]
+                                    $fieldsParam[0] => [$fieldsParam[1] => $this->buildWidgetFilter($fieldsParam[0], $fieldsParam[1], $value)]
                                 ];
                             }
                         }
@@ -1196,7 +1200,7 @@ class RelationModel extends Model
         } else {
             $queryModuleList = Request::$complexFilterRelatedModule;
         }
-        
+
         // 获取entity链路关系
         $entityParentChildHierarchyData = $this->getEntityParentChildHierarchy($queryModuleList, $moduleDictByDstModuleId, $moduleDictBySrcModuleId);
 
@@ -1494,15 +1498,32 @@ class RelationModel extends Model
         $newFilter = [];
         $index = 1;
         foreach ($filter as $filterKey => $filterVal) {
-            if ($filterKey === 0 || (int)$filterKey > 0) {
-                $newFilter[(string)($filterKey + 1)] = $filterVal;
+            if ($filterKey === '_logic') {
+                $newFilter[$filterKey] = $filterVal;
             } else {
-                $newFilter[(string)$index] = [$filterKey => $filterVal];
+                if ($filterKey === 0 || (int)$filterKey > 0) {
+                    $newFilter[(string)($filterKey + 1)] = $filterVal;
+                } else {
+                    $newFilter[(string)$index] = [$filterKey => $filterVal];
+                }
             }
             $index++;
         }
 
         return $newFilter;
+    }
+
+    /**
+     * 处理简单过滤条件
+     * @param $filter
+     */
+    private function parseSimpleFilter(&$filter)
+    {
+        foreach ($filter as $filed => &$value) {
+            if ($filed !== '_logic') {
+                $value = $this->buildWidgetFilter($this->currentModuleCode, $filed, $value);
+            }
+        }
     }
 
     /**
@@ -1527,6 +1548,7 @@ class RelationModel extends Model
                 }
             }
 
+
             if (array_key_exists('_logic', $filter)) {
                 $filterReverse['_logic'] = $filter['_logic'];
             } else {
@@ -1541,6 +1563,9 @@ class RelationModel extends Model
             $complexFilter = $this->parserFilterValue($pretreatmentFilter, $filterReverse, $filterModuleLinkRelation);
 
             return $complexFilter;
+        } else {
+            // 普通过滤条件处理
+            $this->parseSimpleFilter($filter);
         }
 
 
@@ -1852,60 +1877,105 @@ class RelationModel extends Model
     }
 
     /**
-     * 生成最终过滤条件
-     * @param $request
-     * @param $other
-     * @return array
+     * 生成模块字段
+     * @param $moduleCode
      */
-    private function buildFinalFilter($request, $other)
+    private function generateQueryModuleFieldDict($moduleCode)
     {
+        if (!empty($this->queryModuleFieldDict[$moduleCode])) {
+            return $this->queryModuleFieldDict[$moduleCode];
+        }
 
+        $currentModuleFields = Request::$moduleDictData['field_index_by_code'][$moduleCode];
+
+        $this->queryModuleFieldDict[$moduleCode] = array_merge($currentModuleFields['fixed'], $currentModuleFields['custom']);
+
+        return $this->queryModuleFieldDict[$moduleCode];
     }
 
     /**
      * 生成控件过滤条件
-     * @param $item
+     * @param $moduleCode
+     * @param $filed
+     * @param $value
      * @return array
      */
-    public function buildWidgetFilter($item)
+    public function buildWidgetFilter($moduleCode, $filed, $value)
     {
-        switch ($item["editor"]) {
-            case "text":
-            case "textarea":
-                switch ($item["condition"]) {
+
+        // 获取模块字段
+        $currentModuleFieldsDict = $this->generateQueryModuleFieldDict($moduleCode);
+
+        // 判断 value 是否为条件表达式
+        if (is_array($value)) {
+            list($condition, $filterVal) = $value;
+        } else {
+            return $value;
+        }
+
+        switch ($currentModuleFieldsDict[$filed]['editor']) {
+            case "input":
+            case "text_area":
+            case "rich_text":
+            case "link":
+                switch ($condition) {
                     case "LIKE":
                     case "NOTLIKE":
-                        $value = "%" . $item["value"] . "%";
+                        $conditionValue = "%" . $filterVal . "%";
                         break;
                     default:
-                        $value = $item["value"];
+                        $conditionValue = $filterVal;
                         break;
                 }
-                $filter = [$item["condition"], $value];
+                return [$condition, $conditionValue];
                 break;
-            case "combobox":
-            case "tagbox":
-            case "horizontal_relationship":
+            case "select":
+            case "tag":
+            case "switch":
+            case "radio":
             case "checkbox":
-                //$filter = [$item["condition"], $item["value"]];
-                $filter = $this->checkFilterValWeatherNullOrEmpty($item["condition"], $item["value"]);
+                return $this->checkFilterValWeatherNullOrEmpty($condition, $filterVal);
                 break;
-            case "datebox":
-            case "datetimebox":
-                switch ($item["condition"]) {
+            case "times":
+            case "date":
+                switch ($condition) {
                     case "BETWEEN":
-                        $dateBetween = explode(",", $item["value"]);
-                        $filter = [$item["condition"], [strtotime($dateBetween[0]), strtotime($dateBetween[1])]];
+                        $dateBetween = explode(",", $filterVal);
+                        return [$condition, [strtotime($dateBetween[0]), strtotime($dateBetween[1])]];
                         break;
                     default:
-                        $filter = [$item["condition"], strtotime($item["value"])];
+                        return $value;
                         break;
                 }
                 break;
             default:
-                $filter = [];
+                return $value;
                 break;
         }
-        return $filter;
+    }
+
+    /**
+     * 判断过滤条件值是否是Null或者空
+     * @param $condition
+     * @param $value
+     * @return array
+     */
+    protected function checkFilterValWeatherNullOrEmpty($condition, $value)
+    {
+        if (is_array($value)) {
+            // 为数组
+            $len = count($value);
+            if ($len === 1 && $value[$len - 1] == 0) {
+                $this->isNullOrEmptyFilter = true;
+                $condition = 'NEQ';
+                $value = 0;
+            }
+        } else if ((int)$value === 0) {
+            // 当前过滤条件值为零
+            $condition = 'NEQ';
+            $this->isNullOrEmptyFilter = true;
+        }
+
+        return [$condition, $value];
     }
 }
