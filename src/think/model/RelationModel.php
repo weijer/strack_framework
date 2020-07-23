@@ -723,7 +723,7 @@ class RelationModel extends Model
         $fieldArray = explode('__', $field);
         if (
             $fieldArray[0] === $this->currentModuleCode ||
-            (!empty($this->queryModuleLfetJoinRelation[$fieldArray[0]]) && $this->queryModuleLfetJoinRelation[$fieldArray[0]]['relation_type'] === 'belong_to')
+            (!empty($this->queryModuleLfetJoinRelation[$fieldArray[0]]) && in_array($this->queryModuleLfetJoinRelation[$fieldArray[0]]['relation_type'], ['belong_to', 'has_one']))
         ) {
 
             if (array_key_exists($fieldArray[0], $newReturnData)) {
@@ -1591,10 +1591,25 @@ class RelationModel extends Model
                     // 找的可以belong_to的字段
                     $moduleArray = explode('.', $fieldItem);
                     if ($this->currentModuleCode !== $moduleArray[0]) {
-                        if ($filterModuleLinkRelation[$moduleArray[0]]['filter_type'] === "direct" &&
-                            $filterModuleLinkRelation[$moduleArray[0]]['relation_type'] === "belong_to") {
-                            $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
-                            $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                        if ($filterModuleLinkRelation[$moduleArray[0]]['filter_type'] === "direct") {
+                            switch ($filterModuleLinkRelation[$moduleArray[0]]['relation_type']) {
+                                case "belong_to":
+                                    $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
+                                    if(!array_key_exists($moduleArray[0], $this->queryModuleLfetJoinRelation)){
+                                        $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                                    }
+                                    break;
+                                case "has_one":
+                                    if ($filterModuleLinkRelation[$moduleArray[0]]['type'] === 'horizontal') {
+                                        // 水平关联自定义字段
+                                        $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
+                                        if(!array_key_exists($moduleArray[0], $this->queryModuleLfetJoinRelation)) {
+                                            $filterModuleLinkRelation[$moduleArray[0]]['link_id'] = "JSON_EXTRACT(project.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}')";
+                                            $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                                        }
+                                    }
+                                    break;
+                            }
                         }
                     } else {
                         $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
@@ -1651,7 +1666,13 @@ class RelationModel extends Model
         if (!empty($this->queryModuleLfetJoinRelation)) {
             // left join
             foreach ($this->queryModuleLfetJoinRelation as $joinMoudleCode => $joinItem) {
-                $linkIds = explode(',', $joinItem['link_id']);
+
+                if ($joinItem['type'] === 'horizontal') {
+                    $linkIds = [$joinItem['link_id']];
+                } else {
+                    $linkIds = explode(',', $joinItem['link_id']);
+                }
+
 
                 $queryJoin = [
                     'type' => 'one',
@@ -1671,7 +1692,13 @@ class RelationModel extends Model
                                 // 需要分为多个join
                                 $queryJoin['type'] = 'multiple';
                             }
-                            $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$this->currentModuleCode}.{$linkId}";
+
+                            if ($joinItem['type'] === 'horizontal') {
+                                $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$linkId}";
+                            } else {
+                                $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$this->currentModuleCode}.{$linkId}";
+                            }
+
                         }
                     }
                 }
@@ -1679,6 +1706,7 @@ class RelationModel extends Model
                 if ($queryJoin['type'] === 'one') {
                     $conditionString = join('AND', $queryJoin['condition']);
                     substr($conditionString, 0, -strlen('AND'));
+
                     $this->join("LEFT JOIN {$joinItem['module_code']} ON {$conditionString}");
                 } else {
                     foreach ($queryJoin['condition'] as $conditionItem) {
