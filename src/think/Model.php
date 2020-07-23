@@ -75,6 +75,9 @@ class Model
     // 最近错误信息
     protected $error = '';
 
+    // 最近错误码
+    protected $errorCode = '';
+
     // 成功消息
     protected $successMsg = '';
 
@@ -1775,6 +1778,7 @@ class Model
                 }
                 $options = $this->options;
                 if ($this->where($map)->find()) {
+                    $this->errorCode = -411111;
                     return false;
                 }
                 $this->options = $options;
@@ -2176,6 +2180,15 @@ class Model
     public function getError()
     {
         return $this->error;
+    }
+
+    /**
+     * 返回模型错误码
+     * @return string
+     */
+    public function getErrorCode()
+    {
+        return $this->errorCode;
     }
 
     /**
