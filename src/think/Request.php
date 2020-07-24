@@ -146,6 +146,8 @@ class Request
         if (is_null($this->filter)) {
             $this->filter = C('DEFAULT_FILTER');
         }
+        
+        self::$batchNumber = C('BELONG_SYSTEM') . '_' . string_random(8) . '-' . create_uuid();
 
         // 保存 php://input
         $this->input = file_get_contents('php://input');
