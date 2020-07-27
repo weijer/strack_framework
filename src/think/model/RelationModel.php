@@ -61,6 +61,9 @@ class RelationModel extends Model
     // 查询需要join查询的模块
     protected $queryModuleLfetJoinRelation = [];
 
+    // 查询通过自定义字段水平关联的模块
+    protected $queryModuleHorizontalRelation = [];
+
     // 查询实体关联的模块
     protected $queryModuleEntityRelation = [];
 
@@ -744,9 +747,11 @@ class RelationModel extends Model
     private function parsehandleReturnComplexData(&$newReturnData, &$primaryKeyId, $field, $value)
     {
         $fieldArray = explode('__', $field);
+
         if (
             $fieldArray[0] === $this->currentModuleCode ||
             (!empty($this->queryModuleLfetJoinRelation[$fieldArray[0]]) && in_array($this->queryModuleLfetJoinRelation[$fieldArray[0]]['relation_type'], ['belong_to', 'has_one']))
+            || !empty($this->queryModuleHorizontalRelation[$fieldArray[0]])
         ) {
 
             if (array_key_exists($fieldArray[0], $newReturnData)) {
@@ -903,9 +908,6 @@ class RelationModel extends Model
                     }
                 }
             }
-
-            echo json_encode($newReturnData);
-            die;
         }
     }
 
@@ -941,10 +943,78 @@ class RelationModel extends Model
         // 回插entity关联数据
         $this->handleEntityRelationReturnComplexData($newReturnData, $type);
 
-        //echo json_encode($newReturnData);
-        die;
+        // 回插1对n关联数据
+        $this->handleHasManyRelationReturnComplexData($newReturnData, $type);
 
-        return $newReturnData;
+        return array_values($newReturnData);
+    }
+
+    /**
+     * 处理一对多关联数据插入
+     * @param $queryData
+     * @param string $type
+     */
+    private function handleHasManyRelationReturnComplexData(&$queryData, $type = 'find')
+    {
+        $hasManyMapping = [];
+        foreach ($this->queryModuleHasManyRelation as $moduleCode => $modulConfig) {
+            if ($modulConfig['type'] === 'horizontal') {
+                // 一对多水平自定义关联处理
+                $relationIds = [];
+                $relationIdMapping = [];
+                foreach ($queryData as $queryItem) {
+                    if (!empty($queryItem[$moduleCode]['link'])) {
+                        $linkIds = explode(',', $queryItem[$moduleCode]['link']);
+                        foreach ($linkIds as $linkId) {
+                            if (!in_array($linkId, $relationIds)) {
+                                $relationIds[] = (int)$linkId;
+                            }
+                        }
+                        $relationIdMapping[$queryItem[$this->currentModuleCode]['id']] = $linkIds;
+                    } else {
+                        $relationIdMapping[$queryItem[$this->currentModuleCode]['id']] = [];
+                    }
+                }
+
+                $modelObjectClass = '\\common\\model\\' . camelize($modulConfig['module_code']) . 'Model';
+                $newModelObject = new $modelObjectClass();
+
+                $queryFields = $this->queryModuleRelationFields[$moduleCode];
+                if (!in_array('id', $queryFields)) {
+                    array_unshift($queryFields, 'id');
+                }
+
+                $horizontalData = $newModelObject->field(join(',', $queryFields))->where(['id' => ['IN', join(',', $relationIds)]])->select();
+
+                $horizontalDataDict = [];
+                if (!empty($horizontalData)) {
+                    $horizontalDataDict = array_column($horizontalData, null, 'id');
+                }
+
+                foreach ($relationIdMapping as $masterId => &$relationIds) {
+                    $tempData = [];
+                    foreach ($relationIds as $relationId) {
+                        if (array_key_exists($relationId, $horizontalDataDict)) {
+                            $tempData[] = $horizontalDataDict[$relationId];
+                        }
+                    }
+                    $relationIds = $tempData;
+                }
+
+                $hasManyMapping[$moduleCode] = $relationIdMapping;
+
+            } else {
+                // 一对多处理
+
+            }
+        }
+
+        // 回插数据
+        foreach ($queryData as &$queryItem) {
+            foreach ($hasManyMapping as $hasManyModule => $hasManyItem) {
+                $queryItem[$hasManyModule] = $hasManyItem[$queryItem[$this->currentModuleCode]['id']];
+            }
+        }
     }
 
     /**
@@ -1869,7 +1939,7 @@ class RelationModel extends Model
                                         // 水平关联自定义字段
                                         $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
                                         if (!array_key_exists($moduleArray[0], $this->queryModuleLfetJoinRelation)) {
-                                            $filterModuleLinkRelation[$moduleArray[0]]['link_id'] = "JSON_EXTRACT(project.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}')";
+                                            $filterModuleLinkRelation[$moduleArray[0]]['link_id'] = "JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}')";
                                             $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
                                         }
                                     }
@@ -1877,6 +1947,12 @@ class RelationModel extends Model
                                 case "has_many":
                                     // 一对多查询
                                     $this->queryModuleHasManyRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                                    if ($filterModuleLinkRelation[$moduleArray[0]]['type'] === 'horizontal') {
+                                        if (!array_key_exists($moduleArray[0], $this->queryModuleHorizontalRelation)) {
+                                            $this->queryModuleHorizontalRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                                            $newFields[] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}')) as {$moduleArray[0]}__link";
+                                        }
+                                    }
                                     break;
                             }
 
