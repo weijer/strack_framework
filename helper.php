@@ -1565,3 +1565,20 @@ if (!function_exists('array_depth')) {
         return $max_depth;
     }
 }
+
+if (!function_exists('get_module_model_name')) {
+    /**
+     * @param $moduleData
+     * @return string
+     */
+    function get_module_model_name($moduleData)
+    {
+        if ($moduleData['type'] === 'entity') {
+            $class = '\\common\\model\\EntityModel';
+        } else {
+            $class = '\\common\\model\\' . string_initial_letter($moduleData['code']) . 'Model';
+        }
+
+        return $class;
+    }
+}
