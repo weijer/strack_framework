@@ -1576,7 +1576,7 @@ if (!function_exists('get_module_model_name')) {
         if ($moduleData['type'] === 'entity') {
             $class = '\\common\\model\\EntityModel';
         } else {
-            $class = '\\common\\model\\' . string_initial_letter($moduleData['code']) . 'Model';
+            $class = '\\common\\model\\' . camelize($moduleData['code']) . 'Model';
         }
 
         return $class;

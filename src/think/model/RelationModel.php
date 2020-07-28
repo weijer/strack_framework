@@ -976,7 +976,7 @@ class RelationModel extends Model
                     }
                 }
 
-                $modelObjectClass = '\\common\\model\\' . camelize($modulConfig['module_code']) . 'Model';
+                $modelObjectClass = get_module_model_name(Request::$moduleDictData['module_index_by_code'][$modulConfig['module_code']]);
                 $newModelObject = new $modelObjectClass();
 
                 $queryFields = $this->queryModuleRelationFields[$moduleCode];
@@ -1352,25 +1352,26 @@ class RelationModel extends Model
     {
         $resultDict = [];
 
-        foreach ($complexFilterRelatedModule as $moduleCode) {
+        foreach ($complexFilterRelatedModule as $module => $moduleCode) {
+            if (array_key_exists($module, Request::$moduleDictData['module_index_by_code'])) {
+                $moduleData = Request::$moduleDictData['module_index_by_code'][$moduleCode];
+                if ($moduleData['type'] === 'entity') {
+                    // 找到所有儿子
+                    $childResult = [];
+                    $this->recurrenceEntityChildHierarchy($childResult, $moduleCode, $moduleDictByDstModuleId, $moduleDictBySrcModuleId);
 
-            $moduleData = Request::$moduleDictData['module_index_by_code'][$moduleCode];
-            if ($moduleData['type'] === 'entity') {
-                // 找到所有儿子
-                $childResult = [];
-                $this->recurrenceEntityChildHierarchy($childResult, $moduleCode, $moduleDictByDstModuleId, $moduleDictBySrcModuleId);
-
-                if ($this->currentModuleCode === 'task') {
-                    if (!empty($childResult)) {
-                        $resultDict[$moduleCode] = $childResult;
-                    }
-                } else {
-                    // 找到所有爸爸
-                    if ($moduleCode === $this->currentModuleCode) {
-                        $this->recurrenceEntityParentHierarchy($childResult, $moduleCode, $moduleDictByDstModuleId, $moduleDictBySrcModuleId);
-                    }
-                    if (!empty($childResult)) {
-                        $resultDict[$moduleCode] = $childResult;
+                    if ($this->currentModuleCode === 'task') {
+                        if (!empty($childResult)) {
+                            $resultDict[$moduleCode] = $childResult;
+                        }
+                    } else {
+                        // 找到所有爸爸
+                        if ($moduleCode === $this->currentModuleCode) {
+                            $this->recurrenceEntityParentHierarchy($childResult, $moduleCode, $moduleDictByDstModuleId, $moduleDictBySrcModuleId);
+                        }
+                        if (!empty($childResult)) {
+                            $resultDict[$moduleCode] = $childResult;
+                        }
                     }
                 }
             }
@@ -1401,13 +1402,14 @@ class RelationModel extends Model
     /**
      * 递归处理过滤条件的链路关系
      * @param $filterModuleLinkRelation
+     * @param $module
      * @param $moduleCode
      * @param $horizontalModuleList
      * @param $moduleDictBySrcModuleId
      * @param $moduleDictByDstModuleId
      * @param $entityParentChildHierarchyData
      */
-    private function recurrenceFilterModuleRelation(&$filterModuleLinkRelation, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId, $entityParentChildHierarchyData)
+    private function recurrenceFilterModuleRelation(&$filterModuleLinkRelation, $module, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId, $entityParentChildHierarchyData)
     {
         // 对于实体和任务特殊关系每层实体下面都可以挂任务
         $moduleData = Request::$moduleDictData['module_index_by_code'][$moduleCode];
@@ -1415,7 +1417,7 @@ class RelationModel extends Model
         if (in_array($moduleData['code'], $horizontalModuleList)) {
             // 判断是否是水平自定义关联模块
             $moduleDictByDstModuleId[$moduleData['id']][0]['filter_type'] = 'direct';
-            $filterModuleLinkRelation[$moduleData['code']] = $moduleDictByDstModuleId[$moduleData['id']][0];
+            $filterModuleLinkRelation[$module] = $moduleDictByDstModuleId[$moduleData['id']][0];
         } else {
             if ($moduleData['type'] === 'entity') {
                 // 实体类型 如果 对方是任务模块需要独立处理，因为每个实体下面都有任务
@@ -1424,12 +1426,12 @@ class RelationModel extends Model
                         // 仅仅处理任务模型
                         $filterModuleLinkEmtityTemp = [];
                         $this->recurrenceFilterModuleEntityRelation($filterModuleLinkEmtityTemp, $entityParentChildHierarchyData[$moduleData['code']]);
-                        $filterModuleLinkRelation[$moduleData['code']] = $filterModuleLinkEmtityTemp;
+                        $filterModuleLinkRelation[$module] = $filterModuleLinkEmtityTemp;
                     } else {
                         // 实体模型
                         $filterModuleLinkEmtityTemp = [];
                         $this->recurrenceFilterModuleEntityRelation($filterModuleLinkEmtityTemp, $entityParentChildHierarchyData[$moduleData['code']]);
-                        $filterModuleLinkRelation[$moduleData['code']] = $filterModuleLinkEmtityTemp;
+                        $filterModuleLinkRelation[$module] = $filterModuleLinkEmtityTemp;
                     }
                 }
             } else {
@@ -1438,7 +1440,7 @@ class RelationModel extends Model
                     foreach ($moduleDictByDstModuleId[$moduleData['id']] as $relationModuleItem) {
                         if ($relationModuleItem['dst_module_id'] === $moduleData['id']) {
                             $relationModuleItem['filter_type'] = 'direct';
-                            $filterModuleLinkRelation[$moduleData['code']] = $relationModuleItem;
+                            $filterModuleLinkRelation[$module] = $relationModuleItem;
                         }
                     }
                 }
@@ -1494,7 +1496,7 @@ class RelationModel extends Model
                     'link_id' => $horizontalFieldItemConfig['field']
                 ];
 
-                $horizontalModuleList[] = $dstModuleData['code'];
+                $horizontalModuleList[$horizontalFieldItemConfig['field']] = $dstModuleData['code'];
             }
         }
 
@@ -1515,13 +1517,19 @@ class RelationModel extends Model
             $queryModuleList = $horizontalModuleList;
 
             // 自己当前模块
-            $queryModuleList[] = $this->currentModuleCode;
+            $queryModuleList[$this->currentModuleCode] = $this->currentModuleCode;
 
             foreach ($moduleDictBySrcModuleId[Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id']] as $fixedModuleItem) {
-                $queryModuleList[] = $fixedModuleItem['module_code'];
+                $queryModuleList[$fixedModuleItem['module_code']] = $fixedModuleItem['module_code'];
             }
         } else {
-            $queryModuleList = Request::$complexFilterRelatedModule;
+            foreach (Request::$complexFilterRelatedModule as $complexFilterRelatedModule) {
+                if (array_key_exists($complexFilterRelatedModule, $horizontalModuleList)) {
+                    $queryModuleList[$complexFilterRelatedModule] = $horizontalModuleList[$complexFilterRelatedModule];
+                } else {
+                    $queryModuleList[$complexFilterRelatedModule] = $complexFilterRelatedModule;
+                }
+            }
         }
 
         // 获取entity链路关系
@@ -1529,10 +1537,9 @@ class RelationModel extends Model
 
         // 递归处理过滤条件的链路关系
         $filterModuleLinkRelation = [];
-        foreach ($queryModuleList as $moduleCode) {
-            $this->recurrenceFilterModuleRelation($filterModuleLinkRelation, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId, $entityParentChildHierarchyData);
+        foreach ($queryModuleList as $module => $moduleCode) {
+            $this->recurrenceFilterModuleRelation($filterModuleLinkRelation, $module, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId, $entityParentChildHierarchyData);
         }
-
 
         $this->queryModuleRelation = $filterModuleLinkRelation;
 
