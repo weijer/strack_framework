@@ -78,6 +78,9 @@ class Model
     // 最近错误码
     protected $errorCode = '';
 
+    // 检查唯一性存在值
+    protected $checkUniqueExitDta = [];
+
     // 成功消息
     protected $successMsg = '';
 
@@ -1777,8 +1780,10 @@ class Model
                     $map[$pk] = array('neq', $data[$pk]);
                 }
                 $options = $this->options;
-                if ($this->where($map)->find()) {
+                $uniqueFindData = $this->where($map)->find();
+                if ($uniqueFindData) {
                     $this->errorCode = -411111;
+                    $this->checkUniqueExitDta = $uniqueFindData;
                     return false;
                 }
                 $this->options = $options;
@@ -2189,6 +2194,14 @@ class Model
     public function getErrorCode()
     {
         return $this->errorCode;
+    }
+
+    /**
+     * @return string
+     */
+    public function getCheckUniqueExitData()
+    {
+        return $this->checkUniqueExitData;
     }
 
     /**
