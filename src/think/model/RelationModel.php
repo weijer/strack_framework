@@ -79,6 +79,9 @@ class RelationModel extends Model
     // 查询主键IDs
     protected $queryModulePrimaryKeyIds = [];
 
+    // 复杂查询字段映射
+    protected $queryComplexModuleMapping = [];
+
     // 是否是复杂过滤条件
     protected $isComplexFilter = false;
 
@@ -691,7 +694,8 @@ class RelationModel extends Model
     /**
      * 获取器 获取数据对象的值
      * @param $name
-     * @return mixed
+     * @param string $model
+     * @return mixed|null
      */
     public function getAttr($name)
     {
@@ -703,6 +707,7 @@ class RelationModel extends Model
 
         // 检测属性获取器
         $method = 'get' . $this->parseName($name, 1) . 'Attr';
+
         if (method_exists($this, $method)) {
             $value = $this->$method($value, $this->data);
         } elseif (isset($this->type[$name])) {
@@ -714,8 +719,35 @@ class RelationModel extends Model
     }
 
     /**
+     * 获取复杂数据对象值
+     * @param $field
+     * @param $value
+     * @param $model
+     */
+    public function getComplexAttr($field, $inputValue, $moduleCode)
+    {
+        $class = get_module_model_name(Request::$moduleDictData['module_index_by_code'][$moduleCode]);
+        $classObject = new $class();
+
+        // 检测属性获取器
+        $method = 'get' . $classObject->parseName($field, 1) . 'Attr';
+
+        if (method_exists($classObject, $method)) {
+            $value = $classObject->$method($inputValue, []);
+        } elseif (isset($classObject->type[$field])) {
+            // 类型转换
+            $value = $classObject->readTransform($inputValue, $classObject->type[$field]);
+        } else {
+            return $inputValue;
+        }
+
+        return $value;
+    }
+
+    /**
      * 处理查询数据
      * @param $data
+     * @param string $model
      * @return array
      */
     protected function handleQueryData($data)
@@ -755,9 +787,9 @@ class RelationModel extends Model
         ) {
 
             if (array_key_exists($fieldArray[0], $newReturnData)) {
-                $newReturnData[$fieldArray[0]][$fieldArray[1]] = $value;
+                $newReturnData[$fieldArray[0]][$fieldArray[1]] = $this->getComplexAttr($fieldArray[1], $value, $this->queryComplexModuleMapping[$fieldArray[0]]);
             } else {
-                $newReturnData[$fieldArray[0]] = [$fieldArray[1] => $value];
+                $newReturnData[$fieldArray[0]] = [$fieldArray[1] => $this->getComplexAttr($fieldArray[1], $value, $this->queryComplexModuleMapping[$fieldArray[0]])];
             }
 
             if ($fieldArray[0] === $this->currentModuleCode && $fieldArray[1] === "id") {
@@ -769,8 +801,6 @@ class RelationModel extends Model
         } else {
             $newReturnData[$field] = $value;
         }
-
-        return $primaryKeyId;
     }
 
     /**
@@ -1062,7 +1092,6 @@ class RelationModel extends Model
             return !empty($data) ? $data : [];
         }
     }
-
 
     /**
      * 新增数据，成功返回当前添加的一条完整数据
@@ -1540,6 +1569,8 @@ class RelationModel extends Model
         foreach ($queryModuleList as $module => $moduleCode) {
             $this->recurrenceFilterModuleRelation($filterModuleLinkRelation, $module, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId, $entityParentChildHierarchyData);
         }
+
+        $this->queryComplexModuleMapping = $queryModuleList;
 
         $this->queryModuleRelation = $filterModuleLinkRelation;
 
