@@ -155,7 +155,8 @@ if (!function_exists('StrackE')) {
      */
     function StrackE($msg, $code = -400000)
     {
-        throw_strack_exception($msg, $code);
+        throw new \Exception($msg, $code);
+        //throw_strack_exception($msg, $code);
     }
 }
 
