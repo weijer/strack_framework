@@ -82,6 +82,9 @@ class RelationModel extends Model
     // 复杂查询字段映射
     protected $queryComplexModuleMapping = [];
 
+    // 复杂查询自定义字段映射
+    protected $queryComplexCustomFieldMapping = [];
+
     // 是否是复杂过滤条件
     protected $isComplexFilter = false;
 
@@ -1014,6 +1017,10 @@ class RelationModel extends Model
                     array_unshift($queryFields, 'id');
                 }
 
+                foreach ($queryFields as &$queryField){
+                    $queryField = $this->handleQueryCustomFields($queryField);
+                }
+
                 $horizontalData = $newModelObject->field(join(',', $queryFields))->where(['id' => ['IN', join(',', $relationIds)]])->select();
 
                 $horizontalDataDict = [];
@@ -1478,6 +1485,38 @@ class RelationModel extends Model
     }
 
     /**
+     * 处理当前模块自定义字段
+     * @param $queryModuleList
+     */
+    public function parserFilterModuleCustomFields($queryModuleList)
+    {
+        $queryModuleIds = [];
+        foreach ($queryModuleList as $moduleCode) {
+            $moduleId = Request::$moduleDictData['module_index_by_code'][$moduleCode]['id'];
+            if (!in_array($moduleId, $queryModuleIds)) {
+                $queryModuleIds[] = $moduleId;
+            }
+        }
+
+        $fieldModel = new FieldModel();
+        $customFieldData = $fieldModel->field('id,table,module_id,config')
+            ->where([
+                'type' => 'custom',
+                'is_horizontal' => 0,
+                'module_id' => ['IN', join(',', $queryModuleIds)]
+            ])
+            ->select();
+
+        if (!empty($customFieldData)) {
+            foreach ($customFieldData as $customFieldItem) {
+                $customFieldItemConfig = json_decode($customFieldItem['config'], true);
+                $customFieldItemConfig['query_module_code'] = Request::$moduleDictData['module_index_by_id'][$customFieldItem['module_id']]['code'];
+                $this->queryComplexCustomFieldMapping[$customFieldItemConfig['field']] = $customFieldItemConfig;
+            }
+        }
+    }
+
+    /**
      * 获取过滤条件的模块关联关系
      * @param bool $allModuleBack
      * @return array
@@ -1569,6 +1608,9 @@ class RelationModel extends Model
         foreach ($queryModuleList as $module => $moduleCode) {
             $this->recurrenceFilterModuleRelation($filterModuleLinkRelation, $module, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId, $entityParentChildHierarchyData);
         }
+
+        // 模块的自定义字段
+        $this->parserFilterModuleCustomFields($queryModuleList);
 
         $this->queryComplexModuleMapping = $queryModuleList;
 
@@ -1939,6 +1981,29 @@ class RelationModel extends Model
     }
 
     /**
+     * 处理复杂查询自定义字段字段
+     * @param $field
+     * @return string
+     */
+    private function handleQueryCustomFields($field)
+    {
+        if (strpos($field, '.') !== false) {
+            $fieldArray = explode('.', $field);
+            if (array_key_exists($fieldArray[1], $this->queryComplexCustomFieldMapping)) {
+                $fieldConfig = $this->queryComplexCustomFieldMapping[$fieldArray[1]];
+                return "JSON_UNQUOTE(JSON_EXTRACT({$fieldConfig['query_module_code']}.json, '$.{$fieldConfig['field']}'))";
+            }
+        } else {
+            if (array_key_exists($field, $this->queryComplexCustomFieldMapping)) {
+                $fieldConfig = $this->queryComplexCustomFieldMapping[$field];
+                return "JSON_UNQUOTE(JSON_EXTRACT(json, '$.{$fieldConfig['field']}'))";
+            }
+        }
+
+        return $field;
+    }
+
+    /**
      * 构建查询字段
      * @param $field
      * @return array
@@ -1965,6 +2030,7 @@ class RelationModel extends Model
 
                     if ($this->currentModuleCode !== $moduleArray[0]) {
                         if ($filterModuleLinkRelation[$moduleArray[0]]['filter_type'] === "direct") {
+
                             switch ($filterModuleLinkRelation[$moduleArray[0]]['relation_type']) {
                                 case "belong_to":
                                     $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
@@ -1999,7 +2065,7 @@ class RelationModel extends Model
                             $this->queryModuleEntityRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
                         }
                     } else {
-                        $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
+                        $newFields[] = "{$this->handleQueryCustomFields($fieldItem)} as {$moduleArray[0]}__{$moduleArray[1]}";
                     }
                 }
             } else {
