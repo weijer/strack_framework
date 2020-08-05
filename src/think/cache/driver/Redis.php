@@ -19,14 +19,14 @@ use think\cache\Driver;
 class Redis extends Driver
 {
     protected $options = [
-        'host'       => '127.0.0.1',
-        'port'       => 6379,
-        'password'   => '',
-        'select'     => 0,
-        'timeout'    => 0,
-        'expire'     => 0,
+        'host' => '127.0.0.1',
+        'port' => 6379,
+        'password' => '',
+        'select' => 0,
+        'timeout' => 0,
+        'expire' => 0,
         'persistent' => true,
-        'prefix'     => '',
+        'prefix' => '',
     ];
 
     /**
@@ -42,7 +42,7 @@ class Redis extends Driver
         if (!empty($options)) {
             $this->options = array_merge($this->options, $options);
         }
-        $func          = $this->options['persistent'] ? 'pconnect' : 'connect';
+        $func = $this->options['persistent'] ? 'pconnect' : 'connect';
         $this->handler = new \Redis;
         $this->handler->$func($this->options['host'], $this->options['port'], $this->options['timeout']);
 
@@ -70,12 +70,13 @@ class Redis extends Driver
      * 读取缓存
      * @access public
      * @param string $name 缓存变量名
-     * @param mixed  $default 默认值
+     * @param mixed $default 默认值
      * @return mixed
      */
     public function get($name, $default = false)
     {
         $value = $this->handler->get($this->getCacheKey($name));
+
         if (is_null($value)) {
             return $default;
         }
@@ -87,9 +88,9 @@ class Redis extends Driver
     /**
      * 写入缓存
      * @access public
-     * @param string    $name 缓存变量名
-     * @param mixed     $value  存储数据
-     * @param integer   $expire  有效时间（秒）
+     * @param string $name 缓存变量名
+     * @param mixed $value 存储数据
+     * @param integer $expire 有效时间（秒）
      * @return boolean
      */
     public function set($name, $value, $expire = null)
@@ -115,8 +116,8 @@ class Redis extends Driver
     /**
      * 自增缓存（针对数值缓存）
      * @access public
-     * @param string    $name 缓存变量名
-     * @param int       $step 步长
+     * @param string $name 缓存变量名
+     * @param int $step 步长
      * @return false|int
      */
     public function inc($name, $step = 1)
@@ -128,8 +129,8 @@ class Redis extends Driver
     /**
      * 自减缓存（针对数值缓存）
      * @access public
-     * @param string    $name 缓存变量名
-     * @param int       $step 步长
+     * @param string $name 缓存变量名
+     * @param int $step 步长
      * @return false|int
      */
     public function dec($name, $step = 1)
@@ -167,5 +168,18 @@ class Redis extends Driver
             return true;
         }
         return $this->handler->flushDB();
+    }
+
+
+    /**
+     * 追加（数组）缓存数据
+     * @access public
+     * @param string $name 缓存标识
+     * @param mixed $value 数据
+     * @return void
+     */
+    public function push(string $name, $value): void
+    {
+        $this->handler->sAdd($name, $value);
     }
 }
