@@ -654,13 +654,8 @@ class Model
             foreach ($data as $key => $value) {
                 if ($oldData[$key] != $value) {
                     //仅记录变化字段
-                    if (in_array($key, ['json', 'config', 'domain_controllers', 'dn_whitelist', 'param', 'node_config'])) {
-                        $this->oldUpdateData[$key] = json_decode($oldData[$key], true);
-                        $this->newUpdateData[$key] = json_decode($value, true);
-                    } else {
-                        $this->oldUpdateData[$key] = $oldData[$key];
-                        $this->newUpdateData[$key] = $value;
-                    }
+                    $this->oldUpdateData[$key] = $oldData[$key];
+                    $this->newUpdateData[$key] = $value;
                 }
             }
             $this->oldUpdateKey = $oldData[$pk];
