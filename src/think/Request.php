@@ -131,6 +131,9 @@ class Request
     // 复杂过滤条件涉及到的关联模块
     public static $complexFilterRelatedModule = [];
 
+    // 当前请求绑定的project_id
+    public static $projectId = 0;
+
     /**
      * 构造函数
      * @access protected
@@ -146,7 +149,7 @@ class Request
         if (is_null($this->filter)) {
             $this->filter = C('DEFAULT_FILTER');
         }
-        
+
         self::$batchNumber = C('BELONG_SYSTEM') . '_' . string_random(8) . '-' . create_uuid();
 
         // 保存 php://input
