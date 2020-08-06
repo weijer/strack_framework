@@ -155,7 +155,8 @@ if (!function_exists('StrackE')) {
      */
     function StrackE($msg, $code = -400000)
     {
-        throw_strack_exception($msg, $code);
+        throw new \Exception($msg, $code);
+        //throw_strack_exception($msg, $code);
     }
 }
 
@@ -1260,16 +1261,9 @@ if (!function_exists('set_user_session_id')) {
      */
     function set_user_session_id($param = [], $type = 'find')
     {
-        if ($type === 'find' && !empty($param)) {
-            $userModel = new \common\model\UserModel();
-            $userData = $userModel->field('id,phone')->where($param)->find();
-        } else {
-            $userData = $param;
-        }
-
         if (!empty($userData)) {
             // 设置session id
-            session_id(md5('st_session_id_' . $userData['id'] . '_'  . $userData['phone']));
+            session_id(md5('st_session_id_' . $param['id'] . '_'  . $param['phone']));
         }
     }
 }
