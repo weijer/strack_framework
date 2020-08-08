@@ -13,6 +13,7 @@ namespace think\model;
 use common\model\EntityModel;
 use common\model\FieldModel;
 use common\model\ModuleRelationModel;
+use common\model\StepCategoryModel;
 use think\Model;
 use think\Hook;
 use think\Request;
@@ -1017,7 +1018,7 @@ class RelationModel extends Model
                     array_unshift($queryFields, 'id');
                 }
 
-                foreach ($queryFields as &$queryField){
+                foreach ($queryFields as &$queryField) {
                     $queryField = $this->handleQueryCustomFields($queryField);
                 }
 
@@ -1217,88 +1218,118 @@ class RelationModel extends Model
 
 
     /**
+     * 处理过滤字段值
+     * @param $filterItem
+     * @param $key
+     * @param $value
+     */
+    private function parserFilterParamValue(&$filterItem, $key, $value)
+    {
+        if (strpos($key, '.') === false) {
+            throw_strack_exception('The field format must contain a dot symbol.', -400002);
+        }
+
+        $fieldsParam = explode('.', $key);
+        if (!in_array($fieldsParam[0], Request::$complexFilterRelatedModule)) {
+            Request::$complexFilterRelatedModule[] = $fieldsParam[0];
+        }
+
+        if (!array_key_exists($fieldsParam[0], $filterItem)) {
+            $filterItem[$fieldsParam[0]] = [
+                $fieldsParam[1] => $this->buildWidgetFilter($fieldsParam[0], $fieldsParam[1], $value)
+            ];
+        } else {
+            $filterItem[$fieldsParam[0]][$fieldsParam[1]] = $this->buildWidgetFilter($fieldsParam[0], $fieldsParam[1], $value);
+        }
+    }
+
+    /**
+     * 排序数据
+     * @param $filter
+     * @return array
+     */
+    private function sortFilterParam($filter)
+    {
+        $order = [];
+        foreach ($filter as $key => $value) {
+            if (is_array($value)) {
+                $currentItemDepth = array_depth($value);
+            } else {
+                $currentItemDepth = 0;
+            }
+
+            $order[$key] = $currentItemDepth;
+        }
+
+        arsort($order);
+
+        $sortFilter = [];
+        foreach ($order as $orderKey => $depth) {
+            $sortFilter[$orderKey] = $filter[$orderKey];
+        }
+
+        return $sortFilter;
+    }
+
+    /**
+     * 获取最深路径过滤条件路径
+     * @param $key
+     * @param $value
+     * @return array
+     */
+    private function parserFilterItemParam(&$filterItem, $key, $value)
+    {
+        if (strpos($key, '.')) {
+            $this->parserFilterParamValue($filterItem, $key, $value);
+        } else {
+            $str = json_encode($value);
+            if (strpos($str, '.')) {
+                $valuKey = join('', array_keys($value));
+                $valuParam = array_values($value);
+                $this->parserFilterParamValue($filterItem, $valuKey, $valuParam[0]);
+            } else {
+                throw_strack_exception('Parameter format error.', -400001);
+            }
+        }
+
+        return $filterItem;
+    }
+
+
+    /**
      * 处理过滤条件数据结构
      * @param $result
      * @param $filter
      * @param $currentFilter
-     * @param int $depth
-     * @param int $index
      */
-    private function parserFilterParam(&$result, $filter, $currentFilter, $depth = 0, $index = 1)
+    private function parserFilterParam(&$result, $filter, $currentFilter, $index = 1)
     {
-        if ($depth > 0) {
-            $currentDepth = count($currentFilter);
-            $currentIndex = 1;
+        // 对过滤条件按深度排序
+        $sortFilter = $this->sortFilterParam($currentFilter);
 
-            // 数据索引
-            $dictIndex = $depth > 1 ? (string)($depth - 1) : (string)$depth;
-
-            foreach ($currentFilter as $key => $value) {
-
-                if ($depth !== 1 && ($index !== ($depth - 1))) {
-                    if (is_array($value) && is_many_dimension_array($value)) {
-                        $index++;
-                        $this->parserFilterParam($result, $filter, $value, $depth, $index);
-                    }
+        $filterItem = [];
+        foreach ($sortFilter as $key => $value) {
+            if (strpos($key, '.') === false && is_array($value)) {
+                if (count($value) > 1 && is_many_dimension_array($value)) {
+                    $index++;
+                    $this->parserFilterParam($result, $filter, $value, $index);
                 } else {
-
-                    if ($key !== "_logic") {
-
-                        if (!(is_array($value) && is_many_dimension_array($value))) {
-
-                            // 把所有相关联模块存下来
-                            if (strpos($key, '.') === false) {
-                                throw_strack_exception('The field format must contain a dot symbol.', -400001);
-                            }
-
-                            $fieldsParam = explode('.', $key);
-                            if (!in_array($fieldsParam[0], Request::$complexFilterRelatedModule)) {
-                                Request::$complexFilterRelatedModule[] = $fieldsParam[0];
-                            }
-
-                            // 按模板分组存储字段信息
-                            if (array_key_exists($dictIndex, $result)) {
-                                if (!array_key_exists($fieldsParam[0], $result[$dictIndex])) {
-                                    $result[$dictIndex][$fieldsParam[0]] = [
-                                        $fieldsParam[1] => $this->buildWidgetFilter($fieldsParam[0], $fieldsParam[1], $value)
-                                    ];
-                                } else {
-                                    $result[$dictIndex][$fieldsParam[0]][$fieldsParam[1]] = $this->buildWidgetFilter($fieldsParam[0], $fieldsParam[1], $value);
-                                }
-                            } else {
-                                $result[$dictIndex] = [
-                                    $fieldsParam[0] => [$fieldsParam[1] => $this->buildWidgetFilter($fieldsParam[0], $fieldsParam[1], $value)]
-                                ];
-                            }
-                        }
-
-                    } else {
-                        // 逻辑关系
-
-                        if (empty($result[$dictIndex]["_logic"])) {
-                            if (array_key_exists($dictIndex, $result)) {
-                                $result[$dictIndex][$key] = $value;
-                            } else {
-                                $result[$dictIndex] = [$key => $value];
-                            }
-                        }
-                    }
-
-
-                    if ($currentDepth === $currentIndex) {
-
-                        // 循环到末尾往上遍历
-                        if (!array_key_exists('_logic', $result[$dictIndex])) {
-                            $result[$dictIndex]['_logic'] = 'AND';
-                        }
-
-                        $this->parserFilterParam($result, $filter, $filter, $depth - 1, 1);
-                    }
-
-                    $currentIndex++;
+                    $this->parserFilterItemParam($filterItem, $key, $value);
+                }
+            } else {
+                if ($key === '_logic') {
+                    $filterItem[$key] = $value;
+                } else {
+                    $this->parserFilterItemParam($filterItem, $key, $value);
                 }
             }
         }
+
+        if (!array_key_exists('_logic', $filterItem)) {
+            $filterItem['_logic'] = 'AND';
+        }
+
+        $result[] = $filterItem;
     }
 
     /**
@@ -1725,6 +1756,24 @@ class RelationModel extends Model
     }
 
     /**
+     * 解析字段模块
+     * @param $fields
+     */
+    private function parserFieldModule($fields)
+    {
+        $fieldsArr = explode(',', $fields);
+        foreach ($fieldsArr as $fieldsItem) {
+            if (strpos($fieldsItem, '.')) {
+                $fieldsParam = explode('.', $fieldsItem);
+                if (!in_array($fieldsParam[0], Request::$complexFilterRelatedModule)) {
+                    $this->isComplexFilter = true;
+                    Request::$complexFilterRelatedModule[] = $fieldsParam[0];
+                }
+            }
+        }
+    }
+
+    /**
      * 预处理过滤条件项的值
      * @param $masterModuleCode
      * @param $itemModule
@@ -1788,19 +1837,17 @@ class RelationModel extends Model
     }
 
     /**
-     * 预处理过滤条件分组项的值
-     * @param $filterGroupItem
-     * @param $count
+     * 预处理过滤条件值
+     * @param $pretreatmentFilter
+     * @param $filterReverse
      * @param $filterModuleLinkRelation
      */
-    private function parserFilterGroupValue($filterGroupItem, $count, $filterModuleLinkRelation)
+    private function parserFilterValue(&$complexFilter, $filterReverse, $filterModuleLinkRelation)
     {
-        // 一个一个执行
-        $filter = [];
+        foreach ($filterReverse as $filterGroupItem) {
 
-        for ($index = $count; $index > 0; $index--) {
             $filterTemp = [];
-            foreach ($filterGroupItem[$index] as $key => $filterItem) {
+            foreach ($filterGroupItem as $key => $filterItem) {
                 if ($key !== '_logic') {
                     if ($key === $this->currentModuleCode) {
                         // 当前模块
@@ -1822,78 +1869,36 @@ class RelationModel extends Model
                     } else if (array_key_exists('_string', $filterTempItem)) {
                         $filterTemp['_string'] = $filterTempItem['_string'];
                     } else {
-                        $filterTemp[] = $filterTempItem;
+                        $filterTemp = $filterTempItem;
                     }
                 }
             }
 
-            if (array_key_exists('_logic', $filterGroupItem[$index])) {
-                $logic = $filterGroupItem[$index]['_logic'];
+
+            if (array_key_exists('_logic', $filterGroupItem)) {
+                $logic = $filterGroupItem['_logic'];
             } else {
                 $logic = 'AND';
             }
 
-            if (empty($filter)) {
+
+            if(!empty($complexFilter)){
+                if(!empty($filterTemp)){
+                    $filterMid = $complexFilter;
+                    $complexFilter = [];
+                    $complexFilter[] = $filterMid;
+                    $complexFilter[] = $filterTemp;
+                    $complexFilter['_logic'] = $logic;
+                }else{
+                    $complexFilter['_logic'] = $logic;
+                }
+            }else{
                 $filterTemp['_logic'] = $logic;
-                $filter = $filterTemp;
-            } else {
-                $filterMid = $filter;
-                $filter = [];
-                $filter[] = $filterMid;
-                $filter[] = $filterTemp;
-                $filter['_logic'] = $logic;
-            }
-        }
-        return $filter;
-    }
-
-    /**
-     * 解析字段模块
-     * @param $fields
-     */
-    private function parserFieldModule($fields)
-    {
-        $fieldsArr = explode(',', $fields);
-        foreach ($fieldsArr as $fieldsItem) {
-            if (strpos($fieldsItem, '.')) {
-                $fieldsParam = explode('.', $fieldsItem);
-                if (!in_array($fieldsParam[0], Request::$complexFilterRelatedModule)) {
-                    $this->isComplexFilter = true;
-                    Request::$complexFilterRelatedModule[] = $fieldsParam[0];
-                }
-            }
-        }
-    }
-
-    /**
-     * 预处理过滤条件值
-     * @param $pretreatmentFilter
-     * @param $filterReverse
-     * @param $filterModuleLinkRelation
-     */
-    private function parserFilterValue(&$pretreatmentFilter, $filterReverse, $filterModuleLinkRelation)
-    {
-        $filter = [];
-        foreach ($filterReverse as $key => $filterGroupItem) {
-            if ($key !== '_logic') {
-
-                if (array_key_exists('_logic', $filterGroupItem)) {
-                    $count = count($filterGroupItem) - 1;
-                } else {
-                    $count = count($filterGroupItem);
-                }
-
-                $filter[] = $this->parserFilterGroupValue($filterGroupItem, $count, $filterModuleLinkRelation);
+                $complexFilter = $filterTemp;
             }
         }
 
-        if (array_key_exists('_logic', $filterReverse)) {
-            $filter['_logic'] = $filterReverse['_logic'];
-        } else {
-            $filter['_logic'] = 'AND';
-        }
-
-        return $filter;
+        return $complexFilter;
     }
 
     /**
@@ -1944,38 +1949,21 @@ class RelationModel extends Model
         if ($this->isComplexFilter) {
             // 复杂过滤条件处理
             $filterReverse = [];
-
             $filter = $this->parseComplexFilterKey($filter);
-
-            foreach ($filter as $filterKey => $filterVal) {
-                if (is_array($filterVal)) {
-                    $depth = array_depth($filterVal);
-                    $filterReverseItem = [];
-                    $this->parserFilterParam($filterReverseItem, $filterVal, $filterVal, $depth);
-                    $filterReverse[] = $filterReverseItem;
-                }
-            }
-
-
-            if (array_key_exists('_logic', $filter)) {
-                $filterReverse['_logic'] = $filter['_logic'];
-            } else {
-                $filterReverse['_logic'] = 'AND';
-            }
+            $this->parserFilterParam($filterReverse, $filter, $filter);
 
             // 处理所有 module relation 链路数据
             $filterModuleLinkRelation = $this->parserFilterModuleRelation();
 
             // 预处理过滤条件值
-            $pretreatmentFilter = [];
-            $complexFilter = $this->parserFilterValue($pretreatmentFilter, $filterReverse, $filterModuleLinkRelation);
+            $complexFilter = [];
+            $this->parserFilterValue($complexFilter, $filterReverse, $filterModuleLinkRelation);
 
             return $complexFilter;
         } else {
             // 普通过滤条件处理
             $this->parseSimpleFilter($filter);
         }
-
 
         return $filter;
     }
@@ -2418,6 +2406,10 @@ class RelationModel extends Model
     {
         if (!empty($this->queryModuleFieldDict[$moduleCode])) {
             return $this->queryModuleFieldDict[$moduleCode];
+        }
+
+        if (!array_key_exists($moduleCode, Request::$moduleDictData['field_index_by_code'])) {
+            throw_strack_exception("{$moduleCode} module does not exist.", -400003);
         }
 
         $currentModuleFields = Request::$moduleDictData['field_index_by_code'][$moduleCode];

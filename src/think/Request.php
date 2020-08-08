@@ -134,6 +134,9 @@ class Request
     // 当前请求绑定的project_id
     public static $projectId = 0;
 
+    // 当前请求绑定的tenant_id
+    public static $tenantId = 0;
+
     /**
      * 构造函数
      * @access protected
