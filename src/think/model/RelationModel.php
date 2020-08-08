@@ -1882,17 +1882,17 @@ class RelationModel extends Model
             }
 
 
-            if(!empty($complexFilter)){
-                if(!empty($filterTemp)){
+            if (!empty($complexFilter)) {
+                if (!empty($filterTemp)) {
                     $filterMid = $complexFilter;
                     $complexFilter = [];
                     $complexFilter[] = $filterMid;
                     $complexFilter[] = $filterTemp;
                     $complexFilter['_logic'] = $logic;
-                }else{
+                } else {
                     $complexFilter['_logic'] = $logic;
                 }
-            }else{
+            } else {
                 $filterTemp['_logic'] = $logic;
                 $complexFilter = $filterTemp;
             }
@@ -2114,6 +2114,45 @@ class RelationModel extends Model
     }
 
     /**
+     * 自动填充当前租户过滤条件ID
+     * @param $filter
+     * @return array
+     */
+    private function autoFillTenantIdFilter($filter)
+    {
+        $newFilter = [];
+        $tenantId = Request::$tenantId;
+        if ($this->isComplexFilter) {
+            // 关联查询
+            if (!empty($filter)) {
+                $newFilter = [
+                    $filter,
+                    [
+                        "{$this->currentModuleCode}.tenant_id" => $tenantId,
+                    ],
+                    "_logic" => "AND"
+                ];
+            } else {
+                $newFilter["{$this->currentModuleCode}.tenant_id"] = $tenantId;
+            }
+        } else {
+            // 非关联查询
+            if (!empty($filter)) {
+                $newFilter = [
+                    $filter,
+                    "tenant_id" => $tenantId,
+                    "_logic" => "AND"
+                ];
+            } else {
+                $newFilter["tenant_id"] = $tenantId;
+            }
+        }
+
+        return $newFilter;
+    }
+
+
+    /**
      * 判断是否是复杂过滤条件
      * @param $options
      */
@@ -2129,11 +2168,18 @@ class RelationModel extends Model
         }
 
         // entity模块需要加入module_id 默认过滤条件
-        if (strtolower($this->name) === 'entity') {
+        if (in_array(strtolower($this->name), ['entity'])) {
             $filter = !empty($options['filter']) ? $options['filter'] : [];
             $options['filter'] = $this->autoFillEntityModuleIdFilter($filter);
         }
 
+        // 存在租户的模块需要自动增加租户过滤条件
+        if (in_array(strtolower($this->name), [
+            'calendar', 'entity', 'filter', 'media', 'note', 'onset', 'plan', 'project', 'project_user', 'task', 'timelog'
+        ])) {
+            $filter = !empty($options['filter']) ? $options['filter'] : [];
+            $options['filter'] = $this->autoFillTenantIdFilter($filter);
+        }
     }
 
     /**
@@ -2233,7 +2279,6 @@ class RelationModel extends Model
             //有过滤条件
             $fields = !empty($options["fields"]) ? $options["fields"] : [];
             $filter = $this->buildFilter($options["filter"], $fields);
-
             $this->where($filter);
         }
 
