@@ -1261,9 +1261,10 @@ if (!function_exists('set_user_session_id')) {
      */
     function set_user_session_id($param = [], $type = 'find')
     {
-        if (!empty($userData)) {
+        if (!empty($param)) {
             // 设置session id
-            session_id(md5('st_session_id_' . $param['id'] . '_'  . $param['phone']));
+            $str = array_values($param);
+            session_id(md5('st_session_id_' . join('_', $str)));
         }
     }
 }
@@ -1547,16 +1548,16 @@ if (!function_exists('array_depth')) {
      */
     function array_depth($array)
     {
-        $max_depth = 1;
+        $maxDepth = 1;
         foreach ($array as $value) {
             if (is_array($value)) {
                 $depth = array_depth($value) + 1;
-                if ($depth > $max_depth) {
-                    $max_depth = $depth;
+                if ($depth > $maxDepth) {
+                    $maxDepth = $depth;
                 }
             }
         }
-        return $max_depth;
+        return $maxDepth;
     }
 }
 
