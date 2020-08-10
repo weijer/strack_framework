@@ -1952,7 +1952,7 @@ class RelationModel extends Model
     private function parseSimpleFilter(&$filter)
     {
         foreach ($filter as $key => &$val) {
-            if (is_array($val) && is_many_dimension_array($val)) {
+            if (is_array($val) && (is_many_dimension_array($val) || count($val) > 1)) {
                 $this->parseSimpleFilter($val);
             } else {
                 if (is_array($val)) {
