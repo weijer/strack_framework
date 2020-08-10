@@ -804,6 +804,11 @@ class RelationModel extends Model
 
         } else {
             $newReturnData[$field] = $value;
+
+            if ($field === "id") {
+                $this->queryModulePrimaryKeyIds[] = $value;
+                $primaryKeyId = $value;
+            }
         }
     }
 
@@ -1949,8 +1954,8 @@ class RelationModel extends Model
         foreach ($filter as $key => &$val) {
             if (is_array($val) && is_many_dimension_array($val)) {
                 $this->parseSimpleFilter($val);
-            }else{
-                if(is_array($val)){
+            } else {
+                if (is_array($val)) {
                     $val = $this->buildWidgetFilter($this->currentModuleCode, $key, $val);
                 }
             }
@@ -2309,7 +2314,8 @@ class RelationModel extends Model
         // 数据格式化
         if ($needFormat) {
             if ($this->isComplexFilter) {
-                return $this->handleReturnComplexData($findData, 'find');
+                $handleFindData = $this->handleReturnComplexData($findData, 'find');
+                return $handleFindData[0];
             } else {
                 return $this->handleReturnData(false, $findData);
             }
