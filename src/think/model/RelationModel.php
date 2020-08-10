@@ -1926,15 +1926,33 @@ class RelationModel extends Model
         return $newFilter;
     }
 
+
+    /**
+     * 替换过滤条件中的方法名
+     * @param $val
+     */
+    private function checkIsComplexFilterFields(&$val, $key)
+    {
+        if (strpos($val, '.') !== false) {
+            // 是复杂过滤条件
+            $this->isComplexFilter = true;
+        }
+    }
+
+
     /**
      * 处理简单过滤条件
      * @param $filter
      */
     private function parseSimpleFilter(&$filter)
     {
-        foreach ($filter as $filed => &$value) {
-            if ($filed !== '_logic') {
-                $value = $this->buildWidgetFilter($this->currentModuleCode, $filed, $value);
+        foreach ($filter as $key => &$val) {
+            if (is_array($val) && is_many_dimension_array($val)) {
+                $this->parseSimpleFilter($val);
+            }else{
+                if(is_array($val)){
+                    $val = $this->buildWidgetFilter($this->currentModuleCode, $key, $val);
+                }
             }
         }
     }
@@ -1950,6 +1968,7 @@ class RelationModel extends Model
             // 复杂过滤条件处理
             $filterReverse = [];
             $filter = $this->parseComplexFilterKey($filter);
+
             $this->parserFilterParam($filterReverse, $filter, $filter);
 
             // 处理所有 module relation 链路数据
@@ -2159,7 +2178,15 @@ class RelationModel extends Model
     private function checkIsComplexFilter(&$options)
     {
         if (!empty($options)) {
-            array_walk_recursive($options, [$this, 'checkIsComplexFilterFields']);
+
+            if (array_key_exists('filter', $options)) {
+                $filterStr = json_encode($options['filter']);
+                if (strpos($filterStr, '.') !== false) {
+                    // 是复杂过滤条件
+                    $this->isComplexFilter = true;
+                }
+                // array_walk_recursive($options['filter'], [$this, 'checkIsComplexFilterFields']);
+            }
 
             // 处理查询字段
             if (!empty($options['fields'])) {
@@ -2181,19 +2208,6 @@ class RelationModel extends Model
             $options['filter'] = $this->autoFillTenantIdFilter($filter);
         }
     }
-
-    /**
-     * 替换过滤条件中的方法名
-     * @param $val
-     */
-    private function checkIsComplexFilterFields(&$val, $key)
-    {
-        if (strpos($val, '.') !== false) {
-            // 是复杂过滤条件
-            $this->isComplexFilter = true;
-        }
-    }
-
 
     /**
      * 处理关联查询jion sql 组装
