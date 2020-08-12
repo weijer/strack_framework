@@ -187,6 +187,7 @@ class RelationModel extends Model
         //写入事件日志
         if ($options["model"] != "EventLog") {
             $this->databaseEventLogHook([
+                'level' => 'info',
                 'operate' => 'create',
                 'primary_id' => $pk,
                 'primary_field' => $pkName,
@@ -215,6 +216,7 @@ class RelationModel extends Model
         //写入事件日志
         if ($result > 0 && $options["model"] != "EventLog" && $writeEvent) {
             $this->databaseEventLogHook([
+                'level' => 'info',
                 'operate' => 'update',
                 'primary_id' => $this->oldUpdateKey,
                 'primary_field' => $pkName,
@@ -243,6 +245,7 @@ class RelationModel extends Model
         //写入事件日志
         if ($result > 0 && $options["model"] != "EventLog") {
             $this->databaseEventLogHook([
+                'level' => 'info',
                 'operate' => 'delete',
                 'primary_id' => $this->oldDeleteKey,
                 'primary_field' => $pkName,
@@ -1788,11 +1791,16 @@ class RelationModel extends Model
     private function parserFilterItemValue($masterModuleCode, $itemModule, $filter)
     {
         $filterData = [];
+
         switch ($itemModule['filter_type']) {
             case 'master':
                 // 主键查询只需要加上字段别名
                 foreach ($filter as $field => $condition) {
-                    $filterData["{$masterModuleCode}.{$field}"] = $condition;
+                    if (array_key_exists($field, $this->queryComplexCustomFieldMapping)) {
+                        $filterData["json_extract({$masterModuleCode}.json, '$.{$field}' )"] = $condition;
+                    } else {
+                        $filterData["{$masterModuleCode}.{$field}"] = $condition;
+                    }
                 }
                 break;
             case 'direct':
@@ -1955,7 +1963,7 @@ class RelationModel extends Model
             if (is_array($val) && (is_many_dimension_array($val) || count($val) > 1)) {
                 $this->parseSimpleFilter($val);
             } else {
-                if (is_array($val)) {
+                if (is_array($val) && array_key_exists('0', $val)) {
                     $val = $this->buildWidgetFilter($this->currentModuleCode, $key, $val);
                 }
             }
@@ -2391,7 +2399,6 @@ class RelationModel extends Model
 
             $selectData = $this->select();
 
-
         } else {
             $selectData = [];
         }
@@ -2509,6 +2516,11 @@ class RelationModel extends Model
             case "text_area":
             case "rich_text":
             case "link":
+            case "select":
+            case "tag":
+            case "switch":
+            case "radio":
+            case "checkbox":
                 switch ($condition) {
                     case "LIKE":
                     case "NOTLIKE":
@@ -2519,13 +2531,6 @@ class RelationModel extends Model
                         break;
                 }
                 return [$condition, $conditionValue];
-                break;
-            case "select":
-            case "tag":
-            case "switch":
-            case "radio":
-            case "checkbox":
-                return $this->checkFilterValWeatherNullOrEmpty($condition, $filterVal);
                 break;
             case "times":
             case "date":
