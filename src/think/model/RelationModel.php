@@ -854,6 +854,28 @@ class RelationModel extends Model
     }
 
     /**
+     * 处理查询查询的模块自定义字段
+     */
+    private function handleQueryModuleCustomFields(&$fileds, $moduleCode)
+    {
+        if (!empty($fileds)) {
+            // 处理查询的自定义字段
+            $moduleFields = Request::$moduleDictData['field_index_by_code'][$moduleCode];
+            $newFileds = [];
+
+            foreach ($fileds as $field) {
+                if (array_key_exists($field, $moduleFields['custom'])) {
+                    $newFileds[] = "JSON_UNQUOTE(json_extract(json, '$.{$field}' )) as {$field}";
+                } else {
+                    $newFileds[] = $field;
+                }
+
+                $fileds = $newFileds;
+            }
+        }
+    }
+
+    /**
      * 处理实体关联复杂查询数据
      * @param $newReturnData
      * @param string $type
@@ -892,44 +914,47 @@ class RelationModel extends Model
 
             for ($i = $maxDepthRelation['depth']; $i >= 0; $i--) {
 
-                if (array_key_exists($relationUnfold[$i]['belong_module'], $this->queryModuleRelationFields)) {
-                    $fileds = $this->queryModuleRelationFields[$relationUnfold[$i]['belong_module']];
-                } else {
-                    $fileds = [];
-                }
-
-                if (!in_array('id', $fileds)) {
-                    array_unshift($fileds, 'id');
-                }
-
-                if (!in_array('entity_id', $fileds)) {
-                    array_push($fileds, 'entity_id');
-                }
-
-
-                if (!empty($middleRelationIds)) {
-
-                    $entityData = $entityModel->field(join(',', $fileds))->where([
-                        'id' => ['IN', join(',', $middleRelationIds)],
-                        'module_id' => $relationUnfold[$i]['src_module_id'],
-                    ])->select();
-
-
-                    if (!empty($entityData)) {
-                        $middleRelationIds = array_column($entityData, 'entity_id');
-                        $plugBackData[$relationUnfold[$i]['belong_module']] = [
-                            'mapping' => $middleRelationIdMapping,
-                            'data' => array_column($entityData, null, 'id')
-                        ];
-                        $this->generateQueryEntityPlugBackIdMapping($middleRelationIdMapping, $entityData);
+                if ($relationUnfold[$i]['belong_module'] !== $this->currentModuleCode) {
+                    if (array_key_exists($relationUnfold[$i]['belong_module'], $this->queryModuleRelationFields)) {
+                        $fileds = $this->queryModuleRelationFields[$relationUnfold[$i]['belong_module']];
                     } else {
-                        $middleRelationIds = [];
-                        $plugBackData[$relationUnfold[$i]['belong_module']] = [];
+                        $fileds = [];
                     }
 
-                } else {
-                    $plugBackData[$relationUnfold[$i]['belong_module']] = [];
-                    $middleRelationIds = [];
+                    if (!in_array('id', $fileds)) {
+                        array_unshift($fileds, 'id');
+                    }
+
+                    if (!in_array('entity_id', $fileds)) {
+                        array_push($fileds, 'entity_id');
+                    }
+
+                    if (!empty($middleRelationIds)) {
+
+                        $this->handleQueryModuleCustomFields($fileds, $relationUnfold[$i]['belong_module']);
+
+                        $entityData = $entityModel->field(join(',', $fileds))->where([
+                            'id' => ['IN', join(',', $middleRelationIds)],
+                            'module_id' => $relationUnfold[$i]['src_module_id'],
+                        ])->select();
+
+
+                        if (!empty($entityData)) {
+                            $middleRelationIds = array_column($entityData, 'entity_id');
+                            $plugBackData[$relationUnfold[$i]['belong_module']] = [
+                                'mapping' => $middleRelationIdMapping,
+                                'data' => array_column($entityData, null, 'id')
+                            ];
+                            $this->generateQueryEntityPlugBackIdMapping($middleRelationIdMapping, $entityData);
+                        } else {
+                            $middleRelationIds = [];
+                            $plugBackData[$relationUnfold[$i]['belong_module']] = [];
+                        }
+
+                    } else {
+                        $plugBackData[$relationUnfold[$i]['belong_module']] = [];
+                        $middleRelationIds = [];
+                    }
                 }
             }
 
@@ -2398,6 +2423,7 @@ class RelationModel extends Model
             }
 
             $selectData = $this->select();
+
 
         } else {
             $selectData = [];
