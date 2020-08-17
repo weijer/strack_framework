@@ -858,7 +858,7 @@ class RelationModel extends Model
      */
     private function handleQueryModuleCustomFields(&$fileds, $moduleCode)
     {
-        if (!empty($fileds)) {
+        if (!empty($fileds) && !empty(Request::$moduleDictData['field_index_by_code'])) {
             // 处理查询的自定义字段
             $moduleFields = Request::$moduleDictData['field_index_by_code'][$moduleCode];
             $newFileds = [];
@@ -1807,6 +1807,47 @@ class RelationModel extends Model
     }
 
     /**
+     * 处理自定义字段集合查询
+     * @param $filterData
+     * @param $field
+     * @param $condition
+     * @param $moduleCode
+     */
+    private function parserFilterCutsomItemCondition(&$filterData, $field, $condition, $moduleCode = '')
+    {
+        if (is_array($condition)) {
+            list($itemCondition, $itemValue) = $condition;
+            if (in_array(strtolower($itemCondition), ['in', 'not in'])) {
+                if (is_string($itemValue)) {
+                    $inArray = json_encode(explode(',', $itemValue), JSON_UNESCAPED_UNICODE);
+                } else {
+                    $inArray = json_encode($itemValue, JSON_UNESCAPED_UNICODE);
+                }
+
+                if (!empty($moduleCode)) {
+                    $filterData["_string"] = "json_contains('{$inArray}', JSON_EXTRACT({$moduleCode}.json,'$.{$field}'))";
+                } else {
+                    $filterData["_string"] = "json_contains('{$inArray}', JSON_EXTRACT(json,'$.{$field}'))";
+                }
+            } else {
+                if (!empty($moduleCode)) {
+                    $filterData["json_extract({$moduleCode}.json, '$.{$field}' )"] = $condition;
+                } else {
+                    $filterData["json_extract(json, '$.{$field}' )"] = $condition;
+                }
+            }
+        } else {
+            if (!empty($moduleCode)) {
+                $filterData["json_extract({$moduleCode}.json, '$.{$field}' )"] = $condition;
+            } else {
+                $filterData["json_extract(json, '$.{$field}' )"] = $condition;
+            }
+        }
+
+        return $filterData;
+    }
+
+    /**
      * 预处理过滤条件项的值
      * @param $masterModuleCode
      * @param $itemModule
@@ -1822,7 +1863,7 @@ class RelationModel extends Model
                 // 主键查询只需要加上字段别名
                 foreach ($filter as $field => $condition) {
                     if (array_key_exists($field, $this->queryComplexCustomFieldMapping)) {
-                        $filterData["json_extract({$masterModuleCode}.json, '$.{$field}' )"] = $condition;
+                        $this->parserFilterCutsomItemCondition($filterData, $field, $condition, $masterModuleCode);
                     } else {
                         $filterData["{$masterModuleCode}.{$field}"] = $condition;
                     }
@@ -2126,10 +2167,12 @@ class RelationModel extends Model
             }
 
             return join(',', $newFields);
+        } else {
+            $fieldsArr = explode(',', $field);
+            $this->handleQueryModuleCustomFields($fieldsArr, $this->currentModuleCode);
+
+            return join(',', $fieldsArr);
         }
-
-
-        return $field;
     }
 
     /**
@@ -2385,7 +2428,7 @@ class RelationModel extends Model
         $total = $this->count();
 
         // 获取数据
-        if ($total > 0) {
+        if ($total >= 0) {
 
             if ($this->isComplexFilter) {
                 $this->alias($this->currentModuleCode);
