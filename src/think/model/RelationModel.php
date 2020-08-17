@@ -2129,7 +2129,7 @@ class RelationModel extends Model
                                         // 水平关联自定义字段
                                         $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
                                         if (!array_key_exists($moduleArray[0], $this->queryModuleLfetJoinRelation)) {
-                                            $filterModuleLinkRelation[$moduleArray[0]]['link_id'] = "JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}')";
+                                            $filterModuleLinkRelation[$moduleArray[0]]['link_id'] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}'))";
                                             $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
                                         }
                                     }
@@ -2296,6 +2296,7 @@ class RelationModel extends Model
     private function parseQueryRelationDataJoinSql()
     {
         if (!empty($this->queryModuleLfetJoinRelation)) {
+
             // left join
             foreach ($this->queryModuleLfetJoinRelation as $joinMoudleCode => $joinItem) {
 
