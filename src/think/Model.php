@@ -79,7 +79,7 @@ class Model
     protected $errorCode = '';
 
     // 检查唯一性存在值
-    protected $checkUniqueExitDta = [];
+    protected $checkUniqueExitData = [];
 
     // 成功消息
     protected $successMsg = '';
@@ -93,6 +93,7 @@ class Model
     // 查询表达式参数
     protected $options = array();
     protected $_validate = array(); // 自动验证定义
+    protected $_validate_after_auto = array(); // 自动完成后验证
     protected $_auto = array(); // 自动完成定义
     protected $_map = array(); // 字段映射定义
     protected $_scope = array(); // 命名范围定义
@@ -1420,6 +1421,12 @@ class Model
 
         // 创建完成对数据进行自动处理
         $this->autoOperation($data, $type);
+
+        // 创建完成对数据进行验证处理
+        if (!empty($this->_validate_after_auto) && !$this->autoValidation($data, $type, $this->_validate_after_auto)) {
+            return false;
+        }
+
         // 赋值当前数据对象
         $this->data = $data;
         // 返回创建的数据以供其他调用
@@ -1572,13 +1579,16 @@ class Model
      * @param string $type 创建类型
      * @return boolean
      */
-    protected function autoValidation($data, $type)
+    protected function autoValidation($data, $type, $validate = [])
     {
         if (isset($this->options['validate']) && false === $this->options['validate']) {
             // 关闭自动验证
             return true;
         }
-        if (!empty($this->options['validate'])) {
+
+        if (!empty($validate)) {
+            $_validate = $validate;
+        } elseif (!empty($this->options['validate'])) {
             $_validate = $this->options['validate'];
             unset($this->options['validate']);
         } elseif (!empty($this->_validate)) {
@@ -1781,9 +1791,10 @@ class Model
                 }
                 $options = $this->options;
                 $uniqueFindData = $this->where($map)->find();
+
                 if ($uniqueFindData) {
                     $this->errorCode = -411111;
-                    $this->checkUniqueExitDta = $uniqueFindData;
+                    $this->checkUniqueExitData = $uniqueFindData;
                     return false;
                 }
                 $this->options = $options;
