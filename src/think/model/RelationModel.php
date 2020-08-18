@@ -1080,7 +1080,8 @@ class RelationModel extends Model
                 }
 
                 $hasManyMapping[$moduleCode] = $relationIdMapping;
-
+                
+                unset($relationIds);
             } else {
                 // 一对多处理
 
