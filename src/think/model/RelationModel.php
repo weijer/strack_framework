@@ -12,6 +12,7 @@ namespace think\model;
 
 use common\model\EntityModel;
 use common\model\FieldModel;
+use common\model\ModuleModel;
 use common\model\ModuleRelationModel;
 use common\model\StepCategoryModel;
 use think\Model;
@@ -85,6 +86,12 @@ class RelationModel extends Model
 
     // 复杂查询自定义字段映射
     protected $queryComplexCustomFieldMapping = [];
+
+    // 复杂查询水平关联自定义字段映射
+    protected $queryComplexHorizontalCustomFieldMapping = [];
+
+    // 复杂查询关联模型自定义字段映射
+    protected $queryComplexRelationCustomFields = [];
 
     // 是否是复杂过滤条件
     protected $isComplexFilter = false;
@@ -1581,6 +1588,35 @@ class RelationModel extends Model
     }
 
     /**
+     * 获取关联模块自定义字段
+     * @param $modules
+     * @return array
+     */
+    private function getRelationModuleCustomFields($modules)
+    {
+        $relationModule = [];
+        $moduleModel = new ModuleModel();
+        $entityModuleList = $moduleModel->field('code')->where(['type' => 'entity'])->select();
+        foreach ($modules as $moduleKey => $config) {
+            if ($config['type'] !== 'horizontal') {
+                if ($moduleKey === 'entity') {
+                    $entityModuleCustomFields = [];
+                    foreach ($entityModuleList as $entityModuleCode) {
+                        $entityModuleCustomFields = array_merge($entityModuleCustomFields, Request::$moduleDictData['field_index_by_code'][$entityModuleCode['code']]['custom']);
+                    }
+                    $relationModule[$moduleKey] = $entityModuleCustomFields;
+                } else {
+                    $relationModule[$moduleKey] = Request::$moduleDictData['field_index_by_code'][$moduleKey]['custom'];
+                }
+            }
+        }
+
+        $this->queryComplexRelationCustomFields = $relationModule;
+
+        return $relationModule;
+    }
+
+    /**
      * 获取过滤条件的模块关联关系
      * @param bool $allModuleBack
      * @return array
@@ -1630,6 +1666,8 @@ class RelationModel extends Model
 
                 $horizontalModuleList[$horizontalFieldItemConfig['field']] = $dstModuleData['code'];
             }
+
+            $this->queryComplexHorizontalCustomFieldMapping = $horizontalModuleList;
         }
 
         // 涉及的固定字段模块关系  按照 src_module_id dst_module_id 索引
@@ -1655,6 +1693,9 @@ class RelationModel extends Model
                 $queryModuleList[$fixedModuleItem['module_code']] = $fixedModuleItem['module_code'];
             }
         } else {
+            // 取所有关联模块
+            $queryModuleList = $horizontalModuleList;
+
             foreach (Request::$complexFilterRelatedModule as $complexFilterRelatedModule) {
                 if (array_key_exists($complexFilterRelatedModule, $horizontalModuleList)) {
                     $queryModuleList[$complexFilterRelatedModule] = $horizontalModuleList[$complexFilterRelatedModule];
@@ -1679,6 +1720,11 @@ class RelationModel extends Model
         $this->queryComplexModuleMapping = $queryModuleList;
 
         $this->queryModuleRelation = $filterModuleLinkRelation;
+
+        // 获取关联模块的自定义字段
+        if (!empty($filterModuleLinkRelation)) {
+            $this->getRelationModuleCustomFields($filterModuleLinkRelation);
+        }
 
         return $filterModuleLinkRelation;
     }
@@ -2089,6 +2135,93 @@ class RelationModel extends Model
         return $field;
     }
 
+
+    /**
+     * 处理复杂查询字段
+     * @param $fieldsArr
+     * @return array
+     */
+    private function handleComplexFields($fieldsArr)
+    {
+        $newFields = [];
+        $filterModuleLinkRelation = $this->parserFilterModuleRelation();
+
+        foreach ($fieldsArr as $fieldItem) {
+            // 找的可以belong_to的字段
+            $moduleArray = explode('.', $fieldItem);
+
+            if (array_key_exists($moduleArray[0], $this->queryModuleRelationFields)) {
+                $this->queryModuleRelationFields[$moduleArray[0]][] = $moduleArray[1];
+            } else {
+                $this->queryModuleRelationFields[$moduleArray[0]] = [$moduleArray[1]];
+            }
+
+            if ($this->currentModuleCode !== $moduleArray[0]) {
+                if ($filterModuleLinkRelation[$moduleArray[0]]['filter_type'] === "direct") {
+                    switch ($filterModuleLinkRelation[$moduleArray[0]]['relation_type']) {
+                        case "belong_to":
+                            if (!empty($this->queryComplexRelationCustomFields[$moduleArray[0]])
+                                && array_key_exists($moduleArray[1], $this->queryComplexRelationCustomFields[$moduleArray[0]])) {
+                                $newFields[] = "JSON_UNQUOTE(JSON_EXTRACT({$moduleArray[0]}.json, '$.{$moduleArray[1]}')) AS {$moduleArray[0]}__{$moduleArray[1]}";
+                            } else {
+                                $newFields[] = "{$fieldItem} AS {$moduleArray[0]}__{$moduleArray[1]}";
+                            }
+                            if (!array_key_exists($moduleArray[0], $this->queryModuleLfetJoinRelation)) {
+                                $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                            }
+                            break;
+                        case "has_one":
+                            if ($filterModuleLinkRelation[$moduleArray[0]]['type'] === 'horizontal') {
+                                // 水平关联自定义字段
+                                $newFields[] = "{$fieldItem} AS {$moduleArray[0]}__{$moduleArray[1]}";
+                                if (!array_key_exists($moduleArray[0], $this->queryModuleLfetJoinRelation)) {
+                                    $filterModuleLinkRelation[$moduleArray[0]]['link_id'] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}'))";
+                                    $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                                }
+                            }
+                            break;
+                        case "has_many":
+                            // 一对多查询
+                            $this->queryModuleHasManyRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                            if ($filterModuleLinkRelation[$moduleArray[0]]['type'] === 'horizontal') {
+                                if (!array_key_exists($moduleArray[0], $this->queryModuleHorizontalRelation)) {
+                                    $this->queryModuleHorizontalRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                                    $newFields[] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}')) AS {$moduleArray[0]}__link";
+                                }
+                            }
+                            break;
+                    }
+
+                } else {
+                    // 实体模块处理
+                    $this->queryModuleEntityRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                }
+            } else {
+                // 需要判断是不是水平关联字段
+                if (array_key_exists($moduleArray[1], $this->queryComplexHorizontalCustomFieldMapping)) {
+                    // 默认增加id name code 字段
+                    $newFields[] = "{$moduleArray[1]}.id AS {$moduleArray[1]}__id";
+                    $newFields[] = "{$moduleArray[1]}.name AS {$moduleArray[1]}__name";
+                    $newFields[] = "{$moduleArray[1]}.code AS {$moduleArray[1]}__code";
+
+                    if (!array_key_exists($moduleArray[1], $this->queryModuleLfetJoinRelation)) {
+                        $filterModuleLinkRelation[$moduleArray[1]]['link_id'] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[1]]['link_id']}'))";
+                        $this->queryModuleLfetJoinRelation[$moduleArray[1]] = $filterModuleLinkRelation[$moduleArray[1]];
+                    }
+                } else {
+                    $newFields[] = "{$this->handleQueryCustomFields($fieldItem)} AS {$moduleArray[0]}__{$moduleArray[1]}";
+                }
+            }
+        }
+
+        if (array_key_exists($this->currentModuleCode, $this->queryModuleRelationFields) && !in_array('id', $this->queryModuleRelationFields[$this->currentModuleCode])) {
+            // 主表必须查询返回ID字段
+            array_unshift($newFields, "{$this->currentModuleCode}.id AS {$this->currentModuleCode}__id");
+        }
+
+        return $newFields;
+    }
+
     /**
      * 构建查询字段
      * @param $field
@@ -2098,73 +2231,17 @@ class RelationModel extends Model
     {
         if ($this->isComplexFilter) {
             // 处理所有 module relation 链路数据
-            $filterModuleLinkRelation = $this->parserFilterModuleRelation();
-
             $fieldsArr = explode(',', $field);
 
-            $newFields = [];
-            if (strpos($field, '.') !== false) {
-                foreach ($fieldsArr as $fieldItem) {
-                    // 找的可以belong_to的字段
-                    $moduleArray = explode('.', $fieldItem);
-
-                    if (array_key_exists($moduleArray[0], $this->queryModuleRelationFields)) {
-                        $this->queryModuleRelationFields[$moduleArray[0]][] = $moduleArray[1];
-                    } else {
-                        $this->queryModuleRelationFields[$moduleArray[0]] = [$moduleArray[1]];
-                    }
-
-                    if ($this->currentModuleCode !== $moduleArray[0]) {
-                        if ($filterModuleLinkRelation[$moduleArray[0]]['filter_type'] === "direct") {
-
-                            switch ($filterModuleLinkRelation[$moduleArray[0]]['relation_type']) {
-                                case "belong_to":
-                                    $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
-                                    if (!array_key_exists($moduleArray[0], $this->queryModuleLfetJoinRelation)) {
-                                        $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
-                                    }
-                                    break;
-                                case "has_one":
-                                    if ($filterModuleLinkRelation[$moduleArray[0]]['type'] === 'horizontal') {
-                                        // 水平关联自定义字段
-                                        $newFields[] = "{$fieldItem} as {$moduleArray[0]}__{$moduleArray[1]}";
-                                        if (!array_key_exists($moduleArray[0], $this->queryModuleLfetJoinRelation)) {
-                                            $filterModuleLinkRelation[$moduleArray[0]]['link_id'] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}'))";
-                                            $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
-                                        }
-                                    }
-                                    break;
-                                case "has_many":
-                                    // 一对多查询
-                                    $this->queryModuleHasManyRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
-                                    if ($filterModuleLinkRelation[$moduleArray[0]]['type'] === 'horizontal') {
-                                        if (!array_key_exists($moduleArray[0], $this->queryModuleHorizontalRelation)) {
-                                            $this->queryModuleHorizontalRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
-                                            $newFields[] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}')) as {$moduleArray[0]}__link";
-                                        }
-                                    }
-                                    break;
-                            }
-
-                        } else {
-                            // 实体模块处理
-                            $this->queryModuleEntityRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
-                        }
-                    } else {
-                        $newFields[] = "{$this->handleQueryCustomFields($fieldItem)} as {$moduleArray[0]}__{$moduleArray[1]}";
-                    }
-                }
-            } else {
+            if (strpos($field, '.') === false) {
                 // 仅查询主表字段，但需要复杂查询
-                foreach ($fieldsArr as $fieldItem) {
-                    $newFields[] = "{$this->currentModuleCode}.{$fieldItem}";
+
+                foreach ($fieldsArr as &$fieldItem) {
+                    $fieldItem = "{$this->currentModuleCode}.{$fieldItem}";
                 }
             }
 
-            if (!in_array('id', $this->queryModuleRelationFields[$this->currentModuleCode])) {
-                // 主表必须查询返回ID字段
-                array_unshift($newFields, "{$this->currentModuleCode}.id as {$this->currentModuleCode}__id");
-            }
+            $newFields = $this->handleComplexFields($fieldsArr);
 
             return join(',', $newFields);
         } else {
@@ -2266,7 +2343,6 @@ class RelationModel extends Model
                     // 是复杂过滤条件
                     $this->isComplexFilter = true;
                 }
-                // array_walk_recursive($options['filter'], [$this, 'checkIsComplexFilterFields']);
             }
 
             // 处理查询字段
@@ -2315,9 +2391,9 @@ class RelationModel extends Model
                 foreach ($linkIds as $linkId) {
                     if (strpos($linkId, 'module_id') !== false) {
                         if ($this->currentModuleCode === 'task') {
-                            $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$this->currentModuleCode}.entity_module_id";
+                            $queryJoin['condition'][] = "{$joinMoudleCode}.id = {$this->currentModuleCode}.entity_module_id";
                         } else {
-                            $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$this->currentModuleCode}.{$linkId}";
+                            $queryJoin['condition'][] = "{$joinMoudleCode}.id = {$this->currentModuleCode}.{$linkId}";
                         }
                     } else {
                         if ($linkId) {
@@ -2327,9 +2403,9 @@ class RelationModel extends Model
                             }
 
                             if ($joinItem['type'] === 'horizontal') {
-                                $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$linkId}";
+                                $queryJoin['condition'][] = "{$joinMoudleCode}.id = {$linkId}";
                             } else {
-                                $queryJoin['condition'][] = "{$joinItem['module_code']}.id = {$this->currentModuleCode}.{$linkId}";
+                                $queryJoin['condition'][] = "{$joinMoudleCode}.id = {$this->currentModuleCode}.{$linkId}";
                             }
 
                         }
@@ -2340,10 +2416,10 @@ class RelationModel extends Model
                     $conditionString = join('AND', $queryJoin['condition']);
                     substr($conditionString, 0, -strlen('AND'));
 
-                    $this->join("LEFT JOIN {$joinItem['module_code']} ON {$conditionString}");
+                    $this->join("LEFT JOIN {$joinItem['module_code']} AS {$joinMoudleCode} ON {$conditionString}");
                 } else {
                     foreach ($queryJoin['condition'] as $conditionItem) {
-                        $this->join("LEFT JOIN {$joinItem['module_code']} ON {$conditionItem}");
+                        $this->join("LEFT JOIN {$joinItem['module_code']} AS {$joinMoudleCode} ON {$conditionItem}");
                     }
                 }
             }
@@ -2467,7 +2543,6 @@ class RelationModel extends Model
             }
 
             $selectData = $this->select();
-
 
         } else {
             $selectData = [];
