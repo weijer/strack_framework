@@ -1080,7 +1080,7 @@ class RelationModel extends Model
                 }
 
                 $hasManyMapping[$moduleCode] = $relationIdMapping;
-                
+
                 unset($relationIds);
             } else {
                 // 一对多处理
@@ -1914,6 +1914,7 @@ class RelationModel extends Model
                     } else {
                         $filterData["{$masterModuleCode}.{$field}"] = $condition;
                     }
+
                 }
                 break;
             case 'direct':
@@ -1990,12 +1991,22 @@ class RelationModel extends Model
                         $filterTempItem = $this->parserFilterItemValue($this->currentModuleCode, $filterModuleLinkRelation[$key], $filterItem);
                     }
 
-                    if (array_key_exists('_complex', $filterTempItem)) {
-                        $filterTemp['_complex'] = $filterTempItem['_complex'];
-                    } else if (array_key_exists('_string', $filterTempItem)) {
-                        $filterTemp['_string'] = $filterTempItem['_string'];
-                    } else {
-                        $filterTemp = $filterTempItem;
+                    foreach ($filterTempItem as $key => $filterTempItemVal) {
+                        if(array_key_exists($key, $filterTemp)){
+                            $filterTemp[] = $filterTempItemVal;
+                        }else{
+                            switch ($key){
+                                case '_complex':
+                                    $filterTemp['_complex'] = $filterTempItemVal['_complex'];
+                                    break;
+                                case '_complex':
+                                    $filterTemp['_string'] = $filterTempItemVal['_string'];
+                                    break;
+                                default:
+                                    $filterTemp[$key] = $filterTempItemVal;
+                                    break;
+                            }
+                        }
                     }
                 }
             }
