@@ -1929,7 +1929,11 @@ class RelationModel extends Model
 
                 if ($itemModule['type'] === 'horizontal') {
                     // 水平关联为自定义字段
-                    $filterData['_string'] = "JSON_CONTAINS(json_extract({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ), '[{$idsString}]' )";
+                    if (empty($idsString) || $idsString == 'null') {
+                        $filterData['_string'] = "json_extract({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) is null";
+                    }else{
+                        $filterData['_string'] = "JSON_CONTAINS(json_extract({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ), '[{$idsString}]' )";
+                    }
                 } else {
                     // 普通直接查询条件
                     $filterData = $this->parserFilterItemComplexValue($masterModuleCode, $itemModule, $selectData, $idsString);
