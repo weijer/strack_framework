@@ -1929,7 +1929,11 @@ class RelationModel extends Model
 
                 if ($itemModule['type'] === 'horizontal') {
                     // 水平关联为自定义字段
-                    $filterData['_string'] = "JSON_CONTAINS(json_extract({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ), '[{$idsString}]' )";
+                    if (empty($idsString) || $idsString == 'null') {
+                        $filterData['_string'] = "json_extract({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) is null";
+                    } else {
+                        $filterData['_string'] = "JSON_CONTAINS('[{$idsString}]', json_extract({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) )";
+                    }
                 } else {
                     // 普通直接查询条件
                     $filterData = $this->parserFilterItemComplexValue($masterModuleCode, $itemModule, $selectData, $idsString);
@@ -1992,10 +1996,10 @@ class RelationModel extends Model
                     }
 
                     foreach ($filterTempItem as $key => $filterTempItemVal) {
-                        if(array_key_exists($key, $filterTemp)){
+                        if (array_key_exists($key, $filterTemp)) {
                             $filterTemp[] = $filterTempItemVal;
-                        }else{
-                            switch ($key){
+                        } else {
+                            switch ($key) {
                                 case '_complex':
                                     $filterTemp['_complex'] = $filterTempItemVal['_complex'];
                                     break;
