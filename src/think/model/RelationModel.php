@@ -1930,9 +1930,9 @@ class RelationModel extends Model
                 if ($itemModule['type'] === 'horizontal') {
                     // 水平关联为自定义字段
                     if (empty($idsString) || $idsString == 'null') {
-                        $filterData['_string'] = "json_extract({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) is null";
+                        $filterData['_string'] = "JSON_EXTRACT({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) IS NULL";
                     } else {
-                        $filterData['_string'] = "JSON_CONTAINS('[{$idsString}]', json_extract({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) )";
+                        $filterData['_string'] = "JSON_CONTAINS('[{$idsString}]', JSON_UNQUOTE(JSON_EXTRACT({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) ) )";
                     }
                 } else {
                     // 普通直接查询条件
