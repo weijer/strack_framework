@@ -1879,7 +1879,7 @@ class RelationModel extends Model
             if(is_array($itemValue)){
                 $itemValueStr = "";
                 foreach ($itemValue as $item){
-                    $itemValueStr = "\"{$item}\"".",";
+                    $itemValueStr .= "\"{$item}\"".",";
                 }
                 $itemValueStr = substr($itemValueStr, 0, -1);
             }else{
