@@ -1966,6 +1966,7 @@ class RelationModel extends Model
                             $filterData["{$masterModuleCode}.{$field}"] = $condition;
                         }
                     }
+
                 }
                 break;
             case 'direct':
@@ -1980,15 +1981,18 @@ class RelationModel extends Model
 
                 if ($itemModule['type'] === 'horizontal') {
                     // 水平关联为自定义字段
-
-                    if(is_array($ids)){
-                        $idsString = "";
-                        foreach ($ids as $idItem){
-                            $idsString = "\"{$idItem}\"".",";
+                    if (empty($idsString) || $idsString == 'null') {
+                        $filterData['_string'] = "JSON_EXTRACT({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) IS NULL";
+                    } else {
+                        if(is_array($ids)){
+                            $idsString = "";
+                            foreach ($ids as $idItem){
+                                $idsString = "\"{$idItem}\"".",";
+                            }
+                            $idsString = substr($idsString, 0, -1);
                         }
-                        $idsString = substr($idsString, 0, -1);
+                        $filterData['_string'] = "JSON_CONTAINS('[{$idsString}]', JSON_UNQUOTE(JSON_EXTRACT({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) ) )";
                     }
-                    $filterData['_string'] = "JSON_CONTAINS('[{$idsString}]', json_extract({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) )";
                 } else {
                     // 普通直接查询条件
                     $filterData = $this->parserFilterItemComplexValue($masterModuleCode, $itemModule, $selectData, $idsString);
@@ -2051,10 +2055,10 @@ class RelationModel extends Model
                     }
 
                     foreach ($filterTempItem as $key => $filterTempItemVal) {
-                        if(array_key_exists($key, $filterTemp)){
+                        if (array_key_exists($key, $filterTemp)) {
                             $filterTemp[] = $filterTempItemVal;
-                        }else{
-                            switch ($key){
+                        } else {
+                            switch ($key) {
                                 case '_complex':
                                     $filterTemp['_complex'] = $filterTempItemVal['_complex'];
                                     break;
