@@ -138,7 +138,7 @@ class Request
     public static $tenantId = 0;
 
     // 当前请求绑定的user_uuid
-    public static $userUUID = 0;
+    public static $userUUID = "";
 
     // 当前请求绑定的user_id
     public static $userId = 0;
