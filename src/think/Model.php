@@ -2224,6 +2224,7 @@ class Model
         $this->error = '';
         $this->successMsg = '';
         $this->_resData = [];
+        $this->appendCustomField = [];
     }
 
     /**
