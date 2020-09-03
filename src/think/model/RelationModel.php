@@ -735,13 +735,17 @@ class RelationModel extends Model
     /**
      * 获取复杂数据对象值
      * @param $field
-     * @param $value
-     * @param $model
+     * @param $inputValue
+     * @param $moduleCode
+     * @return mixed
      */
     public function getComplexAttr($field, $inputValue, $moduleCode)
     {
         $class = get_module_model_name(Request::$moduleDictData['module_index_by_code'][$moduleCode]);
-        $classObject = new $class();
+
+        //获取一个单例model 重置model
+        $classObject = model($class);
+        $classObject->resetDefault();
 
         // 检测属性获取器
         $method = 'get' . $classObject->parseName($field, 1) . 'Attr';
@@ -1875,7 +1879,7 @@ class RelationModel extends Model
             if(is_array($itemValue)){
                 $itemValueStr = "";
                 foreach ($itemValue as $item){
-                    $itemValueStr = "\"{$item}\"".",";
+                    $itemValueStr .= "\"{$item}\"".",";
                 }
                 $itemValueStr = substr($itemValueStr, 0, -1);
             }else{

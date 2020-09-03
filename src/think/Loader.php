@@ -490,8 +490,8 @@ class Loader
     {
         $uid = $name . $layer;
 
-        if (isset(self::$instance[$uid])) {
-            return self::$instance[$uid];
+        if (isset(self::$_instance[$uid])) {
+            return self::$_instance[$uid];
         }
 
         list($module, $class) = self::getModuleAndClass($name, $layer, $appendSuffix);
@@ -508,7 +508,7 @@ class Loader
             }
         }
 
-        return self::$instance[$uid] = $model;
+        return self::$_instance[$uid] = $model;
     }
 
     /**
