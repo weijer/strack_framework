@@ -13,6 +13,15 @@ namespace think;
 /**
  * ThinkPHP Model模型类
  * 实现了ORM和ActiveRecords模式
+ *
+ * @method $this alias(string $alias)
+ * @method $this strict(bool $strict)
+ * @method $this order(mixed $order)
+ * @method $this having(string $having)
+ * @method $this group(string $group)
+ * @method $this lock(bool $lock)
+ * @method $this distinct(bool $distinct)
+ * @method $this auto(array $auto)
  */
 class Model
 {
@@ -2224,6 +2233,7 @@ class Model
         $this->error = '';
         $this->successMsg = '';
         $this->_resData = [];
+        $this->appendCustomField = [];
     }
 
     /**
