@@ -105,7 +105,7 @@ class [MODEL]Model extends Model
             }
         } else {
             header('Content-Type:text/html; charset=utf-8');
-            exit('应用目录[' . APP_PATH . ']不可写，目录无法自动生成！<BR>请手动生成项目目录~');
+            StrackE("应用目录[  " . APP_PATH . " ]不可写，目录无法自动生成！<BR>请手动生成项目目录~");
         }
     }
 
@@ -116,7 +116,8 @@ class [MODEL]Model extends Model
             mkdir(RUNTIME_PATH);
         } elseif (!is_writeable(RUNTIME_PATH)) {
             header('Content-Type:text/html; charset=utf-8');
-            exit('目录 [ ' . RUNTIME_PATH . ' ] 不可写！');
+
+            StrackE('目录 [ ' . RUNTIME_PATH . ' ] 不可写！');
         }
         mkdir(CACHE_PATH); // 模板缓存目录
         if (!is_dir(LOG_PATH)) {

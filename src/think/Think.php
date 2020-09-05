@@ -169,7 +169,8 @@ class Think
                 $e = $error;
             }
             if (IS_CLI) {
-                exit((IS_WIN ? iconv('UTF-8', 'gbk', $e['message']) : $e['message']) . PHP_EOL . 'FILE: ' . $e['file'] . '(' . $e['line'] . ')' . PHP_EOL . $e['trace']);
+                $errorMsg =  (IS_WIN ? iconv('UTF-8', 'gbk', $e['message']) : $e['message']) . PHP_EOL . 'FILE: ' . $e['file'] . '(' . $e['line'] . ')' . PHP_EOL . $e['trace'];
+                StrackE($errorMsg);
             }
         } else {
             //否则定向到错误页面
@@ -184,7 +185,7 @@ class Think
         // 包含异常页面模板
         $exceptionFile = C('TMPL_EXCEPTION_FILE', null, LIB_PATH . 'Tpl/think_exception.tpl');
         include $exceptionFile;
-        exit;
+        halt();
     }
 
     /**
