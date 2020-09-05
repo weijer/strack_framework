@@ -155,7 +155,6 @@ class CheckActionRouteBehavior
                 }, $url);
             }
             header("Location: $url", true, (is_array($route) && isset($route[1])) ? $route[1] : 301);
-            exit;
         } else {
             // 解析路由地址
             $var = $this->parseUrl($url);
@@ -205,7 +204,6 @@ class CheckActionRouteBehavior
         if (0 === strpos($url, '/') || 0 === strpos($url, 'http')) {
             // 路由重定向跳转
             header("Location: $url", true, (is_array($route) && isset($route[1])) ? $route[1] : 301);
-            exit;
         } else {
             // 解析路由地址
             $var = $this->parseUrl($url);

@@ -26,7 +26,6 @@ class BrowserCheckBehavior
             if (cookie('_last_visit_time_' . $guid) && cookie('_last_visit_time_' . $guid) > time() - $refleshTime) {
                 // 页面刷新读取浏览器缓存
                 header('HTTP/1.1 304 Not Modified');
-                exit;
             } else {
                 // 缓存当前地址访问时间
                 cookie('_last_visit_time_' . $guid, $_SERVER['REQUEST_TIME']);

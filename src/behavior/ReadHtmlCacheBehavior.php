@@ -26,8 +26,7 @@ class ReadHtmlCacheBehavior
             if (false !== $cacheTime && $this->checkHTMLCache(HTML_FILE_NAME, $cacheTime)) {
                 //静态页面有效
                 // 读取静态页面输出
-                echo Storage::read(HTML_FILE_NAME, 'html');
-                exit();
+                view(Storage::read(HTML_FILE_NAME, 'html'));
             }
         }
     }

@@ -148,10 +148,9 @@ if (!function_exists('success_response')) {
 if (!function_exists('StrackE')) {
     /**
      * 抛出异常处理
-     * @param string $msg 异常消息
-     * @param integer $code 异常代码 默认为0
-     * @throws think\Exception
-     * @return void
+     * @param $msg
+     * @param int $code
+     * @throws Exception
      */
     function StrackE($msg, $code = -400000)
     {
@@ -1036,31 +1035,22 @@ if (!function_exists('redirect')) {
      * @param string $msg 重定向前的提示信息
      * @return void
      */
-    function redirect($url, $time = 0, $msg = '')
+    function redirect($url, $time = 0, $msg = '', $params = [], $code = 302)
     {
-        //多行URL地址支持
         $url = str_replace(array("\n", "\r"), '', $url);
-        if (empty($msg)) {
-            $msg = "系统将在{$time}秒之后自动跳转到{$url}！";
+
+        if (is_integer($params)) {
+            $code   = $params;
+            $params = [];
         }
 
-        if (!headers_sent()) {
-            // redirect
-            if (0 === $time) {
-                header('Location: ' . $url);
-            } else {
-                header("refresh:{$time};url={$url}");
-                echo($msg);
-            }
-            exit();
-        } else {
-            $str = "<meta http-equiv='Refresh' content='{$time};URL={$url}'>";
-            if (0 != $time) {
-                $str .= $msg;
-            }
-
-            exit($str);
+        if ($time >0 ) {
+            header("refresh:{$time};url={$url}");
         }
+
+        return  Response::create($url, 'redirect', $code)
+            ->header("refresh", $time)
+            ->params($params);
     }
 }
 
@@ -1575,5 +1565,31 @@ if (!function_exists('get_module_model_name')) {
         }
 
         return $class;
+    }
+}
+
+if (!function_exists('view')) {
+    /**
+     * 渲染模板输出
+     * @param string    $template 模板文件
+     * @param array     $vars 模板变量
+     * @param array     $replace 模板替换
+     * @param integer   $code 状态码
+     * @return \think\response\View
+     */
+    function view($template = '', $vars = [], $replace = [], $code = 200)
+    {
+        return Response::create($template, 'view', $code)->replace($replace)->assign($vars);
+    }
+}
+
+
+if (!function_exists('halt')) {
+    /**
+     * 调试变量并且中断输出
+     */
+    function halt()
+    {
+        throw new HttpResponseException(new Response);
     }
 }

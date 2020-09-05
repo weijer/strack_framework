@@ -158,7 +158,7 @@ class Console
                 $exitCode = 255;
             }
 
-            exit($exitCode);
+            StrackE("", $exitCode);
         }
 
         return $exitCode;

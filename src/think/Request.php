@@ -1702,7 +1702,6 @@ class Request
                 // 返回JSON数据格式到客户端 包含状态信息
                 header('Content-Type:application/json; charset=utf-8');
                 header('Access-Control-Allow-Origin:*');//允许跨域
-                //exit(json_encode($data, $json_option));
                 return json_encode($data, $json_option);
                 break;
             case 'XML':

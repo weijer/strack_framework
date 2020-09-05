@@ -54,7 +54,7 @@ class GIFEncoder
     {
         if (!is_array($GIF_src) && !is_array($GIF_dly)) {
             printf("%s: %s", $this->VER, $this->ERR['ERR00']);
-            exit(0);
+            halt();
         }
         $this->LOP = ($GIF_lop > -1) ? $GIF_lop : 0;
         $this->DIS = ($GIF_dis > -1) ? (($GIF_dis < 3) ? $GIF_dis : 3) : 2;
@@ -68,18 +68,18 @@ class GIFEncoder
                 $this->BUF[] = $GIF_src[$i];
             } else {
                 printf("%s: %s ( %s )!", $this->VER, $this->ERR['ERR02'], $GIF_mod);
-                exit(0);
+                halt();
             }
             if (substr($this->BUF[$i], 0, 6) != "GIF87a" && substr($this->BUF[$i], 0, 6) != "GIF89a") {
                 printf("%s: %d %s", $this->VER, $i, $this->ERR['ERR01']);
-                exit(0);
+                halt();
             }
             for ($j = (13 + 3 * (2 << (ord($this->BUF[$i]{10}) & 0x07))), $k = true; $k; $j++) {
                 switch ($this->BUF[$i]{$j}) {
                     case "!":
                         if ((substr($this->BUF[$i], ($j + 3), 8)) == "NETSCAPE") {
                             printf("%s: %s ( %s source )!", $this->VER, $this->ERR['ERR03'], ($i + 1));
-                            exit(0);
+                            halt();
                         }
                         break;
                     case ";":
