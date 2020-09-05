@@ -1,5 +1,6 @@
 # strack_framework
-strack任务管理系统用到的框架
+- strack框架支持动态模块、json自定义字段自动处理
+- 继承于ThinkPHP 3.2.3
 
 # 引用
 
