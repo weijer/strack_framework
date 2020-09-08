@@ -2257,6 +2257,12 @@ class RelationModel extends Model
                                     $filterModuleLinkRelation[$moduleArray[0]]['link_id'] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}'))";
                                     $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
                                 }
+                            } else if ($filterModuleLinkRelation[$moduleArray[0]]['type'] === 'fixed') {
+                                // 水平关联 固定字段
+                                $newFields[] = "{$fieldItem} AS {$moduleArray[0]}__{$moduleArray[1]}";
+                                if (!array_key_exists($moduleArray[0], $this->queryModuleLfetJoinRelation)) {
+                                    $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                                }
                             }
                             break;
                         case "has_many":
@@ -2484,7 +2490,12 @@ class RelationModel extends Model
                             if ($joinItem['type'] === 'horizontal') {
                                 $queryJoin['condition'][] = "{$joinMoudleCode}.id = {$linkId}";
                             } else {
-                                $queryJoin['condition'][] = "{$joinMoudleCode}.id = {$this->currentModuleCode}.{$linkId}";
+                                // 区分belong_to 和has_one
+                                if ($joinItem['relation_type'] == "has_one") {
+                                    $queryJoin['condition'][] = "{$joinMoudleCode}.{$linkId} = {$this->currentModuleCode}.id";
+                                } else if ($joinItem['relation_type'] == "belong_to") {
+                                    $queryJoin['condition'][] = " {$joinMoudleCode}.id = {$this->currentModuleCode}.{$linkId} ";
+                                }
                             }
 
                         }
