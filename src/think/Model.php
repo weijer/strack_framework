@@ -22,6 +22,11 @@ namespace think;
  * @method $this lock(bool $lock)
  * @method $this distinct(bool $distinct)
  * @method $this auto(array $auto)
+ * @method $this count()
+ * @method $this sum(string $field)
+ * @method $this avg(string $field)
+ * @method $this min(string $field)
+ * @method $this max(string $field)
  */
 class Model
 {
