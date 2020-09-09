@@ -1057,7 +1057,13 @@ class RelationModel extends Model
                 $modelObjectClass = get_module_model_name(Request::$moduleDictData['module_index_by_code'][$modulConfig['module_code']]);
                 $newModelObject = new $modelObjectClass();
 
-                $queryFields = $this->queryModuleRelationFields[$moduleCode];
+
+                if(array_key_exists($moduleCode, $this->queryModuleRelationFields)){
+                    $queryFields = $this->queryModuleRelationFields[$moduleCode];
+                }else{
+                    $queryFields = [];
+                }
+
                 if (!in_array('id', $queryFields)) {
                     array_unshift($queryFields, 'id');
                 }
@@ -2257,6 +2263,12 @@ class RelationModel extends Model
                                     $filterModuleLinkRelation[$moduleArray[0]]['link_id'] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[0]]['link_id']}'))";
                                     $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
                                 }
+                            } else if ($filterModuleLinkRelation[$moduleArray[0]]['type'] === 'fixed') {
+                                // 水平关联 固定字段
+                                $newFields[] = "{$fieldItem} AS {$moduleArray[0]}__{$moduleArray[1]}";
+                                if (!array_key_exists($moduleArray[0], $this->queryModuleLfetJoinRelation)) {
+                                    $this->queryModuleLfetJoinRelation[$moduleArray[0]] = $filterModuleLinkRelation[$moduleArray[0]];
+                                }
                             }
                             break;
                         case "has_many":
@@ -2278,14 +2290,26 @@ class RelationModel extends Model
             } else {
                 // 需要判断是不是水平关联字段
                 if (array_key_exists($moduleArray[1], $this->queryComplexHorizontalCustomFieldMapping)) {
-                    // 默认增加id name code 字段
-                    $newFields[] = "{$moduleArray[1]}.id AS {$moduleArray[1]}__id";
-                    $newFields[] = "{$moduleArray[1]}.name AS {$moduleArray[1]}__name";
-                    $newFields[] = "{$moduleArray[1]}.code AS {$moduleArray[1]}__code";
+                    if($filterModuleLinkRelation[$moduleArray[1]]["relation_type"] === "has_many"){
+                        // 一对多水平自定义字段关联
+                        $this->queryModuleHasManyRelation[$moduleArray[1]] = $filterModuleLinkRelation[$moduleArray[1]];
+                        if ($filterModuleLinkRelation[$moduleArray[1]]['type'] === 'horizontal') {
+                            if (!array_key_exists($moduleArray[1], $this->queryModuleHorizontalRelation)) {
+                                $this->queryModuleHorizontalRelation[$moduleArray[1]] = $filterModuleLinkRelation[$moduleArray[1]];
+                                $newFields[] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[1]]['link_id']}')) AS {$moduleArray[1]}__link";
+                            }
+                        }
+                    }else{
+                        if (!array_key_exists($moduleArray[1], $this->queryModuleLfetJoinRelation)) {
 
-                    if (!array_key_exists($moduleArray[1], $this->queryModuleLfetJoinRelation)) {
-                        $filterModuleLinkRelation[$moduleArray[1]]['link_id'] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[1]]['link_id']}'))";
-                        $this->queryModuleLfetJoinRelation[$moduleArray[1]] = $filterModuleLinkRelation[$moduleArray[1]];
+                            // 默认增加id name code 字段
+                            $newFields[] = "{$moduleArray[1]}.id AS {$moduleArray[1]}__id";
+                            $newFields[] = "{$moduleArray[1]}.name AS {$moduleArray[1]}__name";
+                            $newFields[] = "{$moduleArray[1]}.code AS {$moduleArray[1]}__code";
+
+                            $filterModuleLinkRelation[$moduleArray[1]]['link_id'] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[1]]['link_id']}'))";
+                            $this->queryModuleLfetJoinRelation[$moduleArray[1]] = $filterModuleLinkRelation[$moduleArray[1]];
+                        }
                     }
                 } else {
                     $newFields[] = "{$this->handleQueryCustomFields($fieldItem)} AS {$moduleArray[0]}__{$moduleArray[1]}";
@@ -2484,7 +2508,12 @@ class RelationModel extends Model
                             if ($joinItem['type'] === 'horizontal') {
                                 $queryJoin['condition'][] = "{$joinMoudleCode}.id = {$linkId}";
                             } else {
-                                $queryJoin['condition'][] = "{$joinMoudleCode}.id = {$this->currentModuleCode}.{$linkId}";
+                                // 区分belong_to 和has_one
+                                if ($joinItem['relation_type'] == "has_one") {
+                                    $queryJoin['condition'][] = "{$joinMoudleCode}.{$linkId} = {$this->currentModuleCode}.id";
+                                } else if ($joinItem['relation_type'] == "belong_to") {
+                                    $queryJoin['condition'][] = " {$joinMoudleCode}.id = {$this->currentModuleCode}.{$linkId} ";
+                                }
                             }
 
                         }
