@@ -1550,7 +1550,8 @@ class RelationModel extends Model
                 if ($moduleData['code'] !== $this->currentModuleCode) {
                     // 不是当前自己模块
                     foreach ($moduleDictByDstModuleId[$moduleData['id']] as $relationModuleItem) {
-                        if ($relationModuleItem['dst_module_id'] === $moduleData['id']) {
+                        // dst_module_id src_module_id 都匹配就保存到关联关系中去
+                        if ($relationModuleItem['dst_module_id'] === $moduleData['id'] && $relationModuleItem['src_module_id'] === Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id']) {
                             $relationModuleItem['filter_type'] = 'direct';
                             $filterModuleLinkRelation[$module] = $relationModuleItem;
                         }
