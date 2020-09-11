@@ -492,10 +492,6 @@ class Template
      */
     public function parseXmlTag($tagLib, $tag, $attr, $content)
     {
-        if (get_magic_quotes_gpc()) {
-            $attr = str_replace('\"', '\'', $attr);
-        }
-
         $parse = '_' . $tag;
         $content = trim($content);
         $tags = $tagLib->parseXmlAttr($attr, $tag);
