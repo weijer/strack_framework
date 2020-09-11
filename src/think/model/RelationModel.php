@@ -1995,13 +1995,6 @@ class RelationModel extends Model
                     if (empty($idsString) || $idsString == 'null') {
                         $filterData['_string'] = "JSON_EXTRACT({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) IS NULL";
                     } else {
-                        if(is_array($ids)){
-                            $idsString = "";
-                            foreach ($ids as $idItem){
-                                $idsString = "\"{$idItem}\"".",";
-                            }
-                            $idsString = substr($idsString, 0, -1);
-                        }
                         $filterData['_string'] = "JSON_CONTAINS('[{$idsString}]', JSON_UNQUOTE(JSON_EXTRACT({$masterModuleCode}.json, '$.{$itemModule['link_id']}' ) ) )";
                     }
                 } else {
