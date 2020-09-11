@@ -69,4 +69,21 @@ class Tree
         }
         return $tree;
     }
+
+    /**
+     * 从末端节点开始遍历树
+     * @param $tree
+     * @param callable $callBack
+     */
+    public function traverseTree(&$tree, callable $callBack)
+    {
+        foreach ($tree as &$item) {
+            if (isset($item[$this->childrenKey])) {
+                $this->traverseTree($item[$this->childrenKey], $callBack);
+            }
+            if (is_callable($callBack)) {
+                $callBack($item);
+            }
+        }
+    }
 }
