@@ -247,7 +247,7 @@ class Loader
         }
 
         // 加载应用行为定义
-        if (isset($mode['app_tags'])) { // 允许应用增加开发模式配置定义
+        if (isset($mode['app_tags']) && !empty($mode['app_tags'])) { // 允许应用增加开发模式配置定义
             Hook::import(include $mode['app_tags']);
         }
     }
