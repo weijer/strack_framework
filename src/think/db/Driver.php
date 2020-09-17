@@ -108,7 +108,7 @@ abstract class Driver
                 $this->linkID[$linkNum] = new PDO($config['dsn'], $config['username'], $config['password'], $this->options);
             } catch (\PDOException $e) {
                 if ($autoConnection) {
-                    trace($e->getMessage(), '', 'ERR');
+                    trace($e->getMessage(), 'ERR');
                     return $this->connect($autoConnection, $linkNum);
                 } elseif ($config['debug']) {
                     StrackE($e->getMessage());
@@ -380,7 +380,7 @@ abstract class Driver
             $this->error .= "\n [ SQL语句 ] : " . $this->queryStr;
         }
         // 记录错误日志
-        trace($this->error, '', 'ERR');
+        trace($this->error, 'ERR');
         if ($this->config['debug']) {
             // 开启数据库调试模式
             StrackE($this->error);
@@ -1170,7 +1170,7 @@ abstract class Driver
                 //$this->model  =   '_think_';
                 // 记录操作结束时间
                 G('queryEndTime');
-                trace($this->queryStr . ' [ RunTime:' . G('queryStartTime', 'queryEndTime') . 's ]', '', 'SQL');
+                trace($this->queryStr . ' [ RunTime:' . G('queryStartTime', 'queryEndTime') . 's ]', 'SQL');
             }
         }
     }
