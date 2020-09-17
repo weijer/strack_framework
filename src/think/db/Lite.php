@@ -433,7 +433,7 @@ class Lite
                 //$this->model  =   '_think_';
                 // 记录操作结束时间
                 G('queryEndTime');
-                trace($this->queryStr . ' [ RunTime:' . G('queryStartTime', 'queryEndTime') . 's ]', '', 'SQL');
+                trace($this->queryStr . ' [ RunTime:' . G('queryStartTime', 'queryEndTime') . 's ]', 'SQL');
             }
         }
     }
