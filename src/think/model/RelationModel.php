@@ -1055,7 +1055,7 @@ class RelationModel extends Model
                 }
 
                 $modelObjectClass = get_module_model_name(Request::$moduleDictData['module_index_by_code'][$modulConfig['module_code']]);
-                $newModelObject = new $modelObjectClass();
+                $newModelObject = model($modelObjectClass);
 
 
                 if(array_key_exists($moduleCode, $this->queryModuleRelationFields)){
@@ -1076,6 +1076,9 @@ class RelationModel extends Model
 
                 $horizontalDataDict = [];
                 if (!empty($horizontalData)) {
+                    foreach ($horizontalData as &$selectItem) {
+                        $selectItem = $newModelObject->handleReturnData(false, $selectItem);
+                    }
                     $horizontalDataDict = array_column($horizontalData, null, 'id');
                 }
 
