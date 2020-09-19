@@ -2035,9 +2035,10 @@ class RelationModel extends Model
 
     /**
      * 预处理过滤条件值
-     * @param $pretreatmentFilter
+     * @param $complexFilter
      * @param $filterReverse
      * @param $filterModuleLinkRelation
+     * @return array
      */
     private function parserFilterValue(&$complexFilter, $filterReverse, $filterModuleLinkRelation)
     {
@@ -2061,19 +2062,19 @@ class RelationModel extends Model
                         $filterTempItem = $this->parserFilterItemValue($this->currentModuleCode, $filterModuleLinkRelation[$key], $filterItem);
                     }
 
-                    foreach ($filterTempItem as $key => $filterTempItemVal) {
-                        if (array_key_exists($key, $filterTemp)) {
+                    foreach ($filterTempItem as $filterTempItemKey => $filterTempItemVal) {
+                        if (array_key_exists($filterTempItemKey, $filterTemp)) {
                             $filterTemp[] = $filterTempItemVal;
                         } else {
-                            switch ($key) {
+                            switch ($filterTempItemKey) {
                                 case '_complex':
-                                    $filterTemp['_complex'] = $filterTempItemVal['_complex'];
+                                    $filterTemp['_complex'] = $filterTempItemVal;
                                     break;
-                                case '_complex':
-                                    $filterTemp['_string'] = $filterTempItemVal['_string'];
+                                case '_string':
+                                    $filterTemp['_string'] = $filterTempItemVal;
                                     break;
                                 default:
-                                    $filterTemp[$key] = $filterTempItemVal;
+                                    $filterTemp[$filterTempItemKey] = $filterTempItemVal;
                                     break;
                             }
                         }
