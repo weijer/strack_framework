@@ -559,6 +559,46 @@ class Model
     }
 
     /**
+     * 批量更新数据
+     * @param [array] $datas [更新数据]
+     * @param [string] $table_name [表名]
+     */
+    public function saveAll($datas)
+    {
+        $sql = ''; //Sql
+        $pk = $this->getPk();
+        $tableName = $this->getTableName();
+
+        $lists = []; //记录集$lists
+        $ids = [];
+        foreach ($datas as $data) {
+            foreach ($data as $key => $value) {
+                if ($pk === $key) {
+                    $ids[] = $value;
+                } else {
+                    if(array_key_exists($key, $lists)){
+                        $lists[$key] .= sprintf("WHEN %u THEN '%s' ", $data[$pk], $value);
+                    }else{
+                        $lists[$key] = sprintf("WHEN %u THEN '%s' ", $data[$pk], $value);
+                    }
+                }
+            }
+        }
+
+        foreach ($lists as $key => $value) {
+            $sql .= sprintf("`%s` = CASE `%s` %s END,", $key, $pk, $value);
+        }
+
+        $sql = sprintf('UPDATE %s SET %s WHERE %s IN ( %s )', $tableName, rtrim($sql, ','), $pk, implode(',', $ids));
+
+        M()->execute($sql);
+
+        unset($sql);
+
+        return;
+    }
+
+    /**
      * 通过Select方式添加记录
      * @access public
      * @param string $fields 要插入的数据表字段名
