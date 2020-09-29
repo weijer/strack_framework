@@ -1364,7 +1364,7 @@ class RelationModel extends Model
         $filterItem = [];
         foreach ($sortFilter as $key => $value) {
             if (strpos($key, '.') === false && is_array($value)) {
-                if (count($value) > 1 && is_many_dimension_array($value)) {
+                if (count($value) > 1) {
                     $index++;
                     $this->parserFilterParam($result, $filter, $value, $index);
                 } else {
