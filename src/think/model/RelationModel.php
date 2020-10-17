@@ -2444,6 +2444,10 @@ class RelationModel extends Model
                     // 是复杂过滤条件
                     $this->isComplexFilter = true;
                 }
+
+                //处理筛选字段
+                $this->parserFilterModule($options['filter']);
+
             }
 
             // 处理查询字段
@@ -2829,4 +2833,26 @@ class RelationModel extends Model
 
         return [$condition, $value];
     }
+
+    /**
+     * 解析过滤器的模块
+     * @param $filter
+     */
+    private function parserFilterModule($filter)
+    {
+        foreach ($filter as $key => $value) {
+            if (strpos($key, '.') === false && is_array($value) && count($value) > 1) {
+                $this->parserFilterModule($value);
+                continue;
+            }
+
+            if (strpos($key, '.') > 0) {
+                $fieldsParam = explode('.', $key);
+                if (!in_array($fieldsParam[0], Request::$complexFilterRelatedModule)) {
+                    Request::$complexFilterRelatedModule[] = $fieldsParam[0];
+                }
+            }
+        }
+    }
+
 }
