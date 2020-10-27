@@ -261,7 +261,7 @@ class App
             }
         } else {
             // 单一模块部署
-            $module = '';
+            $module = strip_tags($result[0] ?: $config['DEFAULT_MODULE']);
             $request->module($module);
         }
 
