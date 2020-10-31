@@ -2518,14 +2518,21 @@ class RelationModel extends Model
                     }
                 }
 
+                $joinModuleSourceCode = $joinItem['module_code'];
+                if(!empty(Request::$moduleDictData['module_index_by_code'][$joinItem['module_code']])){
+                    if(Request::$moduleDictData['module_index_by_code'][$joinItem['module_code']]['type'] === 'entity'){
+                        $joinModuleSourceCode = 'entity';
+                    }
+                }
+
                 if ($queryJoin['type'] === 'one') {
                     $conditionString = join('AND', $queryJoin['condition']);
                     substr($conditionString, 0, -strlen('AND'));
 
-                    $this->join("LEFT JOIN {$joinItem['module_code']} AS {$joinMoudleCode} ON {$conditionString}");
+                    $this->join("LEFT JOIN {$joinModuleSourceCode} AS {$joinMoudleCode} ON {$conditionString}");
                 } else {
                     foreach ($queryJoin['condition'] as $conditionItem) {
-                        $this->join("LEFT JOIN {$joinItem['module_code']} AS {$joinMoudleCode} ON {$conditionItem}");
+                        $this->join("LEFT JOIN {$joinModuleSourceCode} AS {$joinMoudleCode} ON {$conditionItem}");
                     }
                 }
             }
