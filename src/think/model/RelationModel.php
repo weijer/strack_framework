@@ -1069,7 +1069,7 @@ class RelationModel extends Model
                 }
 
                 foreach ($queryFields as &$queryField) {
-                    $queryField = $this->handleQueryCustomFields($queryField);
+                    $queryField = $this->handleQueryCustomFields($queryField) ." AS $queryField";
                 }
 
                 $horizontalData = $newModelObject->field(join(',', $queryFields))->where(['id' => ['IN', join(',', $relationIds)]])->select();
