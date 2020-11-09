@@ -2529,10 +2529,10 @@ class RelationModel extends Model
                     $conditionString = join('AND', $queryJoin['condition']);
                     substr($conditionString, 0, -strlen('AND'));
 
-                    $this->join("LEFT JOIN {$joinModuleSourceCode} AS {$joinMoudleCode} ON {$conditionString}");
+                    $this->join("LEFT JOIN `{$joinModuleSourceCode}` AS `{$joinMoudleCode}` ON {$conditionString}");
                 } else {
                     foreach ($queryJoin['condition'] as $conditionItem) {
-                        $this->join("LEFT JOIN {$joinModuleSourceCode} AS {$joinMoudleCode} ON {$conditionItem}");
+                        $this->join("LEFT JOIN `{$joinModuleSourceCode}` AS `{$joinMoudleCode}` ON {$conditionItem}");
                     }
                 }
             }
