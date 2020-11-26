@@ -39,6 +39,9 @@ class Log
         $type = isset($config['type']) ? $config['type'] : 'File';
         $class = strpos($type, '\\') ? $type : 'think\\log\\driver\\' . ucwords(strtolower($type));
         unset($config['type']);
+        if (IS_CLI) {
+            $config['log_path'] .= 'cli' . DS;
+        }
         self::$storage = new $class($config);
     }
 
@@ -73,7 +76,11 @@ class Log
         }
 
         if (empty($destination)) {
-            $destination = LOG_PATH . date('y_m_d') . '.log';
+            if (IS_CLI) {
+                $destination = LOG_PATH . 'cli' . DS . date('y_m_d') . '.log';
+            } else {
+                $destination = LOG_PATH . date('y_m_d') . '.log';
+            }
         }
         if (!self::$storage) {
             $type = $type ?: C('LOG_TYPE');
@@ -112,6 +119,9 @@ class Log
             $type = $type ?: C('LOG_TYPE');
             $class = 'think\\log\\driver\\' . ucwords($type);
             $config['log_path'] = LOG_PATH;
+            if (IS_CLI) {
+                $config['log_path'] .= 'cli' . DS;
+            }
             self::$storage = new $class($config);
         }
         if (empty($destination)) {
