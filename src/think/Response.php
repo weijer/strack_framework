@@ -37,7 +37,7 @@ class Response
      * 状态码
      * @var integer
      */
-    protected $code = 200;
+    public $code = 200;
 
     /**
      * 是否允许请求缓存
@@ -55,7 +55,7 @@ class Response
      * header参数
      * @var array
      */
-    protected $header = [];
+    public $header = [];
 
     /**
      * 输出内容

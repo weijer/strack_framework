@@ -406,7 +406,7 @@ class Request
      */
     public function pathinfo()
     {
-        if (is_null($this->pathinfo)) {
+        if (is_null($this->pathinfo) || defined('IS_SWOOLE_MODE')) {
             if (isset($_GET[C('VAR_PATHINFO')])) {
                 // 判断URL里面是否有兼容模式参数
                 $_SERVER['PATH_INFO'] = $_GET[C('var_pathinfo')];
@@ -415,6 +415,7 @@ class Request
                 // CLI模式下 index.php module/controller/action/params/...
                 $_SERVER['PATH_INFO'] = isset($_SERVER['argv'][1]) ? $_SERVER['argv'][1] : '';
             }
+
             // 分析PATHINFO信息
             if (!isset($_SERVER['PATH_INFO'])) {
                 foreach (C('PATHINFO_FETCH') as $type) {
@@ -437,7 +438,7 @@ class Request
      */
     public function path()
     {
-        if (is_null($this->path)) {
+        if (is_null($this->path) || defined('IS_SWOOLE_MODE')) {
             $suffix = C('URL_HTML_SUFFIX');
             $pathinfo = $this->pathinfo();
             if (false === $suffix) {
@@ -537,7 +538,7 @@ class Request
         if (true === $method) {
             // 获取原始请求类型
             return $this->server('REQUEST_METHOD') ?: 'GET';
-        } elseif (!$this->method) {
+        } elseif (!$this->method || defined('IS_SWOOLE_MODE')) {
             if (isset($_POST[C('VAR_METHOD')])) {
                 $method = strtoupper($_POST[C('VAR_METHOD')]);
                 if (in_array($method, ['GET', 'POST', 'DELETE', 'PUT', 'PATCH'])) {
@@ -656,7 +657,7 @@ class Request
      */
     public function param($name = '', $default = null, $filter = '')
     {
-        if (empty($this->param)) {
+        if (empty($this->param) || defined('IS_SWOOLE_MODE')) {
             $method = $this->method(true);
             // 自动获取请求变量
             switch ($method) {
@@ -758,7 +759,7 @@ class Request
      */
     public function get($name = '', $default = null, $filter = '')
     {
-        if (empty($this->get)) {
+        if (empty($this->get) || defined('IS_SWOOLE_MODE')) {
             $this->get = $_GET;
         }
         if (is_array($name)) {
@@ -778,7 +779,7 @@ class Request
      */
     public function post($name = '', $default = null, $filter = '')
     {
-        if (empty($this->post)) {
+        if (empty($this->post) || defined('IS_SWOOLE_MODE')) {
             $content = $this->input;
             if (empty($_POST) && false !== strpos($this->contentType(), 'application/json')) {
                 $this->post = (array)json_decode($content, true);
@@ -803,7 +804,7 @@ class Request
      */
     public function put($name = '', $default = null, $filter = '')
     {
-        if (is_null($this->put)) {
+        if (is_null($this->put) || defined('IS_SWOOLE_MODE')) {
             $content = $this->input;
             if (false !== strpos($this->contentType(), 'application/json')) {
                 $this->put = (array)json_decode($content, true);
@@ -1022,12 +1023,13 @@ class Request
      */
     public function header($name = '', $default = null)
     {
-        if (empty($this->header)) {
+        if (empty($this->header) || defined('IS_SWOOLE_MODE')) {
             $header = [];
             if (function_exists('apache_request_headers') && $result = apache_request_headers()) {
                 $header = $result;
             } else {
-                $server = $this->server ?: $_SERVER;
+                $server = defined('IS_SWOOLE_MODE') ? $_SERVER : $this->server ?: $_SERVER;
+
                 foreach ($server as $key => $val) {
                     if (0 === strpos($key, 'HTTP_')) {
                         $key = str_replace('_', '-', strtolower(substr($key, 5)));
@@ -1041,6 +1043,7 @@ class Request
                     $header['content-length'] = $server['CONTENT_LENGTH'];
                 }
             }
+
             $this->header = array_change_key_case($header);
         }
         if (is_array($name)) {
@@ -1157,7 +1160,7 @@ class Request
      */
     public function filter($filter = null)
     {
-        if (is_null($filter)) {
+        if (is_null($filter) || defined('IS_SWOOLE_MODE')) {
             return $this->filter;
         } else {
             $this->filter = $filter;
