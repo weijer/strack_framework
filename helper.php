@@ -1460,7 +1460,7 @@ if (!function_exists('check_tel_number')) {
     function check_tel_number($number, $type = 'phone')
     {
         $regxArr = array(
-            'phone' => '/^(\+?86-?)?(18|15|17|13|14)[0-9]{9}$/',
+            'phone' => '/^(\+?86-?)?(19|18|17|16|15|14|13)[0-9]{9}$/',
             'telephone' => '/^(010|02\d{1}|0[3-9]\d{2})-\d{7,9}(-\d+)?$/',
             '400' => '/^400(-\d{3,4}){2}$/',
         );
