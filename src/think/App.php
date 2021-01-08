@@ -137,6 +137,9 @@ class App
                 }
             }
 
+            // 验证请求Token，排除登陆方法
+            Hook::listen("request", $request);
+
             $request->filter(C('DEFAULT_FILTER'));
 
             // 获取应用调度信息
@@ -370,7 +373,7 @@ class App
 
             if ($must && false === $result) {
                 // 路由无效
-                throw new RouteNotFoundException();
+                StrackE('Invalid route config.', -404);
             }
         }
 

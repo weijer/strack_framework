@@ -38,6 +38,10 @@ class Loader
      */
     private static $files = [];
 
+    private static $configCacheFile = "";
+    private static $configCache = [];
+    private static $configCacheRefresh = false;
+
     /**
      * 查找文件
      * @param $class
@@ -231,14 +235,39 @@ class Loader
         // 读取应用模式
         $mode = include_once is_file(CONF_PATH . 'core.php') ? CONF_PATH . 'core.php' : CONF_PATH . APP_MODE . '.php';
 
-        // 加载应用模式配置文件
-        foreach ($mode['config'] as $key => $file) {
-            is_numeric($key) ? C(load_config($file)) : C($key, load_config($file));
-        }
+        // 读取应用模式缓存配置
+        if (!empty(self::$configCache['mode'])) {
+            $modeConfig = self::$configCache['mode'];
+            C($modeConfig);
+        } else {
+            // 加载应用模式配置文件
+            foreach ($mode['config'] as $key => $file) {
+                is_numeric($key) ? C(load_config($file)) : C($key, load_config($file));
+            }
 
-        // 读取当前应用模式对应的配置文件
-        if ('common' != APP_MODE && is_file(CONF_PATH . 'config_' . APP_MODE . CONF_EXT)) {
-            C(load_config(CONF_PATH . 'config_' . APP_MODE . CONF_EXT));
+            // 读取当前应用模式对应的配置文件
+            if ('common' != APP_MODE && is_file(CONF_PATH . 'config_' . APP_MODE . CONF_EXT)) {
+                C(load_config(CONF_PATH . 'config_' . APP_MODE . CONF_EXT));
+            }
+
+            // 调试模式加载系统默认的配置文件
+            C(include CONF_PATH . 'debug.php');
+
+            // 读取应用调试配置文件
+            if (is_file(CONF_PATH . 'debug' . CONF_EXT)) {
+                C(include CONF_PATH . 'debug' . CONF_EXT);
+            }
+
+            // 读取当前应用状态对应的配置文件
+            if (APP_STATUS && is_file(CONF_PATH . APP_STATUS . CONF_EXT)) {
+                C(include CONF_PATH . APP_STATUS . CONF_EXT);
+            }
+
+            // 加载动态应用公共文件和配置
+            load_ext_file(COMMON_PATH);
+
+            self::$configCache['mode'] = C();
+            self::$configCacheRefresh = true;
         }
 
         // 加载模式行为定义
@@ -259,22 +288,6 @@ class Loader
     {
         // 加载框架底层语言包
         L(include LIB_PATH . 'lang/' . strtolower(C('DEFAULT_LANG')) . '.php');
-
-        // 调试模式加载系统默认的配置文件
-        C(include CONF_PATH . 'debug.php');
-
-        // 读取应用调试配置文件
-        if (is_file(CONF_PATH . 'debug' . CONF_EXT)) {
-            C(include CONF_PATH . 'debug' . CONF_EXT);
-        }
-
-        // 读取当前应用状态对应的配置文件
-        if (APP_STATUS && is_file(CONF_PATH . APP_STATUS . CONF_EXT)) {
-            C(include CONF_PATH . APP_STATUS . CONF_EXT);
-        }
-
-        // 加载动态应用公共文件和配置
-        load_ext_file(COMMON_PATH);
 
         // 设置系统时区
         date_default_timezone_set(C('DEFAULT_TIMEZONE'));
@@ -346,22 +359,6 @@ class Loader
         define('IS_WIN', strstr(PHP_OS, 'WIN') ? 1 : 0);
         define('IS_CLI', PHP_SAPI == 'cli' ? 1 : 0);
 
-        // 加载环境变量配置文件
-        if (is_file(ROOT_PATH . '.env')) {
-            $env = parse_ini_file(ROOT_PATH . '.env', true);
-            foreach ($env as $key => $val) {
-                $name = ENV_PREFIX . strtoupper($key);
-                if (is_array($val)) {
-                    foreach ($val as $k => $v) {
-                        $item = $name . '_' . strtoupper($k);
-                        putenv("$item=$v");
-                    }
-                } else {
-                    putenv("$name=$val");
-                }
-            }
-        }
-
         // 模板文件根地址
         if (!IS_CLI) {
             // 当前文件名
@@ -384,6 +381,38 @@ class Loader
         }
     }
 
+    /**
+     * 加载ENV环境变量
+     */
+    public static function loadEnv()
+    {
+        $env = [];
+        if (!empty(self::$configCache['env'])) {
+            $env = self::$configCache['env'];
+        } else {
+            if (is_file(ROOT_PATH . '.env')) {
+                $env = parse_ini_file(ROOT_PATH . '.env', true);
+                self::$configCache['env'] = $env;
+                self::$configCacheRefresh = true;
+            }
+        }
+
+        // 加载环境变量配置文件
+        if (!empty($env)) {
+            foreach ($env as $key => $val) {
+                $name = ENV_PREFIX . strtoupper($key);
+                if (is_array($val)) {
+                    foreach ($val as $k => $v) {
+                        $item = $name . '_' . strtoupper($k);
+                        putenv("$item=$v");
+                    }
+                } else {
+                    putenv("$name=$val");
+                }
+            }
+        }
+    }
+
 
     /**
      * 注册自动加载机制
@@ -397,6 +426,16 @@ class Loader
         // 初始化文件存储方式
         self::initStorage();
 
+        // 读取配置缓存
+        self::$configCacheFile = CACHE_PATH . 'config.php';
+        $configCacheJson = Storage::get(self::$configCacheFile, 'content', '');
+        if (!empty($configCacheJson)) {
+            self::$configCache = json_decode($configCacheJson, true);
+        }
+
+        // 读取ENV环境配置
+        self::loadEnv();
+
         // 读取应用模式配置数据
         self::readModeFile();
 
@@ -405,6 +444,10 @@ class Loader
 
         // 检查应用目录文件夹
         //self::checkAppDir();
+
+        if(self::$configCacheRefresh){
+            Storage::put(self::$configCacheFile, json_encode(self::$configCache));
+        }
 
         // 记录加载文件时间
         G('loadTime');
@@ -452,9 +495,9 @@ class Loader
     /**
      * 解析模块和类名
      * @access protected
-     * @param  string $name 资源地址
-     * @param  string $layer 验证层名称
-     * @param  bool $appendSuffix 是否添加类名后缀
+     * @param string $name 资源地址
+     * @param string $layer 验证层名称
+     * @param bool $appendSuffix 是否添加类名后缀
      * @return array
      */
     protected static function getModuleAndClass($name, $layer, $appendSuffix)
@@ -479,10 +522,10 @@ class Loader
     /**
      * 实例化（分层）模型
      * @access public
-     * @param  string $name Model名称
-     * @param  string $layer 业务层名称
-     * @param  bool $appendSuffix 是否添加类名后缀
-     * @param  string $common 公共模块名
+     * @param string $name Model名称
+     * @param string $layer 业务层名称
+     * @param bool $appendSuffix 是否添加类名后缀
+     * @param string $common 公共模块名
      * @return object
      * @throws ClassNotFoundException
      */
