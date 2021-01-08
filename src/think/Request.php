@@ -143,6 +143,9 @@ class Request
     // 当前请求绑定的user_id
     public static $userId = 0;
 
+    // 当前请求绑定的x-userinfo
+    public static $xuserinfo = "";
+
     /**
      * 构造函数
      * @access protected
