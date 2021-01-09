@@ -36,7 +36,7 @@ class Cors
             'Access-Control-Allow-Origin' => $origin,
             'Access-Control-Allow-Methods' => 'GET, POST, PATCH, PUT, DELETE',
             'Access-Control-Allow-Credentials' => true,
-            'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Token, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, X-Requested-With, Device-Unique-Code',
+            'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Token, X-Userinfo, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, X-Requested-With,Accept,Origin, Device-Unique-Code',
         ];
 
         if ($request->method(true) == 'OPTIONS') {
