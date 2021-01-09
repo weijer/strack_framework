@@ -137,9 +137,6 @@ class App
                 }
             }
 
-            // 验证请求Token，排除登陆方法
-            Hook::listen("request", $request);
-
             $request->filter(C('DEFAULT_FILTER'));
 
             // 获取应用调度信息
@@ -296,6 +293,9 @@ class App
 
         // 设置当前请求的控制器、操作
         $request->controller(Loader::parseName($controller, 1))->action($actionName);
+
+        // request hook
+        Hook::listen("request", $request);
 
         try {
             $instance = Loader::controller(
