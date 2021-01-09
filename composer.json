@@ -9,6 +9,11 @@
             "email": "weiwei163@foxmail.com"
         }
     ],
+    "require": {
+        "php": ">=7.2",
+        "workerman/workerman": "^4.0.4",
+        "psr/container": "^1.0"
+    },
     "autoload": {
         "files": [
             "helper.php"
