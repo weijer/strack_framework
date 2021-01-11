@@ -11,34 +11,60 @@
 
 namespace think;
 
-use SplFileInfo;
-use SplFileObject;
-
-class File extends SplFileObject
+class File extends \SplFileInfo
 {
     /**
      * 错误信息
      * @var string
      */
     private $error = '';
+
     // 当前完整文件名
     protected $filename;
+
     // 上传文件名
     protected $saveName;
+
     // 文件上传命名规则
     protected $rule = 'date';
+
     // 文件上传验证规则
     protected $validate = [];
+
     // 单元测试
     protected $isTest;
+
     // 上传文件信息
     protected $info;
+
     // 文件hash信息
     protected $hash = [];
 
-    public function __construct($filename, $mode = 'r')
+    /**
+     * @var string
+     */
+    protected $_uploadMimeType = null;
+
+    /**
+     * @var int
+     */
+    protected $_uploadErrorCode = null;
+
+
+    /**
+     * UploadFile constructor.
+     * UploadFile constructor.
+     * @param $fileName
+     * @param $uploadName
+     * @param $uploadMimeType
+     * @param $uploadErrorCode
+     */
+    public function __construct($fileName, $uploadName, $uploadMimeType, $uploadErrorCode)
     {
-        parent::__construct($filename, $mode);
+        $this->saveName = $uploadName;
+        $this->_uploadMimeType = $uploadMimeType;
+        $this->_uploadErrorCode = $uploadErrorCode;
+        parent::__construct($fileName);
         $this->filename = $this->getRealPath() ?: $this->getPathname();
     }
 
@@ -55,7 +81,7 @@ class File extends SplFileObject
 
     /**
      * 设置上传信息
-     * @param  array   $info 上传文件信息
+     * @param array $info 上传文件信息
      * @return $this
      */
     public function setUploadInfo($info)
@@ -66,7 +92,7 @@ class File extends SplFileObject
 
     /**
      * 获取上传文件的信息
-     * @param  string   $name
+     * @param string $name
      * @return array|string
      */
     public function getInfo($name = '')
@@ -96,7 +122,8 @@ class File extends SplFileObject
 
     /**
      * 获取文件的哈希散列值
-     * @return $string
+     * @param string $type
+     * @return mixed
      */
     public function hash($type = 'sha1')
     {
@@ -127,7 +154,7 @@ class File extends SplFileObject
 
     /**
      * 获取文件类型信息
-     * @return string
+     * @return mixed
      */
     public function getMime()
     {
@@ -206,6 +233,14 @@ class File extends SplFileObject
     }
 
     /**
+     * @return mixed
+     */
+    public function getExtension()
+    {
+        return pathinfo($this->saveName, PATHINFO_EXTENSION);
+    }
+
+    /**
      * 检测上传文件后缀
      * @param  array|string   $ext    允许后缀
      * @return bool
@@ -261,6 +296,14 @@ class File extends SplFileObject
     }
 
     /**
+     * @return string
+     */
+    public function getMineType()
+    {
+        return $this->_uploadMimeType;
+    }
+
+    /**
      * 检测上传文件类型
      * @param  array|string   $mime    允许类型
      * @return bool
@@ -277,122 +320,26 @@ class File extends SplFileObject
     }
 
     /**
-     * 移动文件
-     * @param  string           $path    保存路径
-     * @param  string|bool      $savename    保存的文件名 默认自动生成
-     * @param  boolean          $replace 同名文件是否覆盖
-     * @return false|SplFileInfo false-失败 否则返回SplFileInfo实例
+     * @param $destination
+     * @return File
      */
-    public function move($path, $savename = true, $replace = true)
+    public function move($destination)
     {
-        // 文件上传失败，捕获错误代码
-        if (!empty($this->info['error'])) {
-            $this->error($this->info['error']);
-            return false;
+        set_error_handler(function ($type, $msg) use (&$error) {
+            $error = $msg;
+        });
+        $path = pathinfo($destination, PATHINFO_DIRNAME);
+        if (!is_dir($path) && !mkdir($path, 0777, true)) {
+            restore_error_handler();
+            throw new \RuntimeException(sprintf('Unable to create the "%s" directory (%s)', $path, strip_tags($error)));
         }
-
-        // 检测合法性
-        if (!$this->isValid()) {
-            $this->error = '非法上传文件';
-            return false;
+        if (!rename($this->getPathname(), $destination)) {
+            restore_error_handler();
+            throw new \RuntimeException(sprintf('Could not move the file "%s" to "%s" (%s)', $this->getPathname(), $destination, strip_tags($error)));
         }
-
-        // 验证上传
-        if (!$this->check()) {
-            return false;
-        }
-        $path = rtrim($path, DS) . DS;
-        // 文件保存命名规则
-        $saveName = $this->buildSaveName($savename);
-        $filename = $path . $saveName;
-
-        // 检测目录
-        if (false === $this->checkPath(dirname($filename))) {
-            return false;
-        }
-
-        /* 不覆盖同名文件 */
-        if (!$replace && is_file($filename)) {
-            $this->error = '存在同名文件' . $filename;
-            return false;
-        }
-
-        /* 移动文件 */
-        if ($this->isTest) {
-            rename($this->filename, $filename);
-        } elseif (!move_uploaded_file($this->filename, $filename)) {
-            $this->error = '文件上传保存错误！';
-            return false;
-        }
-        // 返回 File对象实例
-        $file = new self($filename);
-        $file->setSaveName($saveName);
-        $file->setUploadInfo($this->info);
-        return $file;
-    }
-
-    /**
-     * 获取保存文件名
-     * @param  string|bool   $savename    保存的文件名 默认自动生成
-     * @return string
-     */
-    protected function buildSaveName($savename)
-    {
-        if (true === $savename) {
-            // 自动生成文件名
-            if ($this->rule instanceof \Closure) {
-                $savename = call_user_func_array($this->rule, [$this]);
-            } else {
-                switch ($this->rule) {
-                    case 'date':
-                        $savename = date('Ymd') . DS . md5(microtime(true));
-                        break;
-                    default:
-                        if (in_array($this->rule, hash_algos())) {
-                            $hash     = $this->hash($this->rule);
-                            $savename = substr($hash, 0, 2) . DS . substr($hash, 2);
-                        } elseif (is_callable($this->rule)) {
-                            $savename = call_user_func($this->rule);
-                        } else {
-                            $savename = date('Ymd') . DS . md5(microtime(true));
-                        }
-                }
-            }
-        } elseif ('' === $savename) {
-            $savename = $this->getInfo('name');
-        }
-        if (!strpos($savename, '.')) {
-            $savename .= '.' . pathinfo($this->getInfo('name'), PATHINFO_EXTENSION);
-        }
-        return $savename;
-    }
-
-    /**
-     * 获取错误代码信息
-     * @param int $errorNo  错误号
-     */
-    private function error($errorNo)
-    {
-        switch ($errorNo) {
-            case 1:
-            case 2:
-                $this->error = '上传文件大小超过了最大值！';
-                break;
-            case 3:
-                $this->error = '文件只有部分被上传！';
-                break;
-            case 4:
-                $this->error = '没有文件被上传！';
-                break;
-            case 6:
-                $this->error = '找不到临时文件夹！';
-                break;
-            case 7:
-                $this->error = '文件写入失败！';
-                break;
-            default:
-                $this->error = '未知上传错误！';
-        }
+        restore_error_handler();
+        @chmod($destination, 0666 & ~umask());
+        return new self($destination);
     }
 
     /**
@@ -404,8 +351,11 @@ class File extends SplFileObject
         return $this->error;
     }
 
-    public function __call($method, $args)
+    /**
+     * @return int
+     */
+    public function getUploadErrorCode()
     {
-        return $this->hash($method);
+        return $this->_uploadErrorCode;
     }
 }

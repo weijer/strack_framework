@@ -126,16 +126,6 @@ class App
         $header = [];
 
         try {
-            // 模块/控制器绑定
-            if (defined('BIND_MODULE')) {
-                BIND_MODULE && Route::bind(BIND_MODULE);
-            } elseif (C('AUTO_BIND_MODULE')) {
-                // 入口自动绑定
-                $name = pathinfo($request->baseFile(), PATHINFO_FILENAME);
-                if ($name && 'index' != $name && is_dir(APP_PATH . $name)) {
-                    Route::bind($name);
-                }
-            }
 
             $request->filter(C('DEFAULT_FILTER'));
 

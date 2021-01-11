@@ -65,13 +65,25 @@ class Db
     }
 
     /**
+     * 初始化配置参数
+     * @access public
+     * @param array $config 连接配置
+     * @return void
+     */
+    public static function setInstance(): void
+    {
+        // 解析连接参数 支持数组和字符串
+        self::getInstance();
+    }
+
+    /**
      * 数据库连接参数解析
      * @static
      * @access private
      * @param mixed $config
      * @return array
      */
-    private static function parseConfig($config)
+    private static function parseConfig($config = [])
     {
         if (!empty($config)) {
             if (is_string($config)) {

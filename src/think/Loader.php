@@ -329,7 +329,10 @@ class Loader
         }
 
         // 系统常量定义
+        defined('DS') or define('DS', DIRECTORY_SEPARATOR);   // 分隔符常量
+        defined('EXT') or define('EXT',  '.php'); // 类文件后缀
         defined('ROOT_PATH') or define('ROOT_PATH', dirname(realpath(APP_PATH)) . DS);
+        defined('RUNTIME_PATH') or define('RUNTIME_PATH', ROOT_PATH . 'runtime/');   // 定义缓存目录
         defined('APP_STATUS') or define('APP_STATUS', ''); // 应用状态 加载对应的配置文件
         defined('APP_MODE') or define('APP_MODE', 'common'); // 应用模式 默认为普通模式
         defined('STORAGE_TYPE') or define('STORAGE_TYPE', 'File'); // 存储类型 默认为File

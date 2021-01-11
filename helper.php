@@ -1593,3 +1593,93 @@ if (!function_exists('halt')) {
         throw new HttpResponseException(new Response);
     }
 }
+
+if (!function_exists('string_random')) {
+    /**
+     * 随机字符串加数字
+     * @param $length
+     * @return string
+     * @throws Exception
+     */
+    function string_random($length)
+    {
+        $int = $length / 2;
+        $bytes = random_bytes($int);
+        $string = bin2hex($bytes);
+        return $string;
+    }
+}
+
+
+if (!function_exists('cpu_count')) {
+    /**
+     * @return int
+     */
+    function cpu_count()
+    {
+        if (strtolower(PHP_OS) === 'darwin') {
+            $count = shell_exec('sysctl -n machdep.cpu.core_count');
+        } else {
+            $count = shell_exec('nproc');
+        }
+        $count = (int)$count > 0 ? (int)$count : 4;
+        return $count;
+    }
+}
+
+if (!function_exists('runtime_path')) {
+    /**
+     * @return string
+     */
+    function runtime_path()
+    {
+        return RUNTIME_PATH;
+    }
+}
+
+
+if (!function_exists('base_path')) {
+    /**
+     * @return string
+     */
+    function base_path()
+    {
+        return ROOT_PATH;
+    }
+}
+
+if (!function_exists('app_path')) {
+    /**
+     * @return string
+     */
+    function app_path()
+    {
+        return APP_PATH;
+    }
+}
+
+if (!function_exists('config_path')) {
+    /**
+     * @return string
+     */
+    function config_path()
+    {
+        return COMMON_PATH . 'config' . DS;
+    }
+}
+
+if (!function_exists('create_uuid')) {
+    /**
+     * 生成uuid
+     * @return mixed
+     * @throws Exception
+     */
+    function create_uuid()
+    {
+        if (function_exists("uuid_create")) {
+            return uuid_create();
+        } else {
+            return Webpatser\Uuid\Uuid::generate()->string;
+        }
+    }
+}
