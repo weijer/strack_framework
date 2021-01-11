@@ -65,9 +65,21 @@ class Request extends \Workerman\Protocols\Http\Request
     protected $param = [];
     protected $get = [];
     protected $post = [];
+    protected $route = [];
     protected $put;
 
     protected $content;
+
+    /**
+     * @var string pathinfo（不含后缀）
+     */
+    protected $path;
+
+    /**
+     * @var array 当前路由信息
+     */
+    protected $routeInfo = [];
+
 
     // php://input
     protected $input;
@@ -141,10 +153,10 @@ class Request extends \Workerman\Protocols\Http\Request
      * @return \think\Request
      * @throws \Exception
      */
-    public static function instance()
+    public static function instance($request = null)
     {
         if (empty(self::$instance)) {
-            self::$instance = new static();
+            self::$instance = $request;
         }
         return self::$instance;
     }
@@ -209,6 +221,19 @@ class Request extends \Workerman\Protocols\Http\Request
     public function ext()
     {
         return pathinfo($this->path(), PATHINFO_EXTENSION);
+    }
+
+    /**
+     * 获取当前请求URL的pathinfo信息(不含URL后缀)
+     * @access public
+     * @return string
+     */
+    public function path()
+    {
+        $suffix = C('URL_HTML_SUFFIX');
+        $path = parent::path();
+        $this->path = substr_replace($path,"",0,1);
+        return $this->path;
     }
 
 
@@ -340,6 +365,23 @@ class Request extends \Workerman\Protocols\Http\Request
             return $this->get = array_merge($this->get, $name);
         }
         return $this->input($this->get, $name, $default, $filter);
+    }
+
+    /**
+     * 设置获取路由参数
+     * @access public
+     * @param string|array $name 变量名
+     * @param mixed $default 默认值
+     * @param string|array $filter 过滤方法
+     * @return mixed
+     */
+    public function route($name = '', $default = null, $filter = '')
+    {
+        if (is_array($name)) {
+            $this->param = [];
+            return $this->route = array_merge($this->route, $name);
+        }
+        return $this->input($this->route, $name, $default, $filter);
     }
 
     /**
@@ -847,6 +889,21 @@ class Request extends \Workerman\Protocols\Http\Request
             return trim($type);
         }
         return '';
+    }
+
+    /**
+     * 获取当前请求的路由信息
+     * @access public
+     * @param array $route 路由名称
+     * @return array
+     */
+    public function routeInfo($route = [])
+    {
+        if (!empty($route)) {
+            $this->routeInfo = $route;
+        } else {
+            return $this->routeInfo;
+        }
     }
 
     /**

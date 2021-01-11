@@ -10,14 +10,15 @@
 // +----------------------------------------------------------------------
 namespace think;
 
-use Psr\Container\ContainerInterface;
+use Workerman\Worker;
+use Workerman\Timer;
+use Workerman\Connection\TcpConnection;
 use think\exception\HttpResponseException;
 use think\exception\HttpException;
 use think\Exception\ExceptionHandler;
 use think\Exception\ExceptionHandlerInterface;
-use Workerman\Connection\TcpConnection;
-use Workerman\Timer;
-use Workerman\Worker;
+use Psr\Container\ContainerInterface;
+use Monolog\Logger;
 
 class App
 {
@@ -138,6 +139,7 @@ class App
             static::$_maxRequestCount = $max_requst_count;
         }
         static::$_supportStaticFiles = true;
+        static::$_supportPHPFiles = false;
     }
 
 
@@ -303,6 +305,7 @@ class App
         }
 
         $request = Request::instance();
+        
 
         if ($config['MULTI_MODULE']) {
             // 多模块部署
@@ -329,13 +332,6 @@ class App
 
                 // 初始化模块
                 $request->module($module);
-
-                // 模块请求缓存检查
-                $request->cache(
-                    $config['REQUEST_CACHE'],
-                    $config['REQUEST_CACHE_EXPIRE'],
-                    $config['REQUEST_CACHE_EXCEPT']
-                );
             } else {
                 throw new HttpException(404, 'module not exists:' . $module);
             }
@@ -425,28 +421,13 @@ class App
     public static function routeCheck($request, array $config)
     {
         $path = $request->path();
+        
         $depr = $config['URL_PATHINFO_DEPR'];
         $result = false;
 
         // 路由检测
         $check = !is_null(self::$routeCheck) ? self::$routeCheck : $config['URL_ROUTE_ON'];
         if ($check) {
-            // 开启路由
-            if (is_file(RUNTIME_PATH . 'route.php')) {
-                // 读取路由缓存
-                $rules = include RUNTIME_PATH . 'route.php';
-                is_array($rules) && Route::rules($rules);
-            } else {
-                $files = $config['ROUTE_CONFIG_FILE'];
-                foreach ($files as $file) {
-                    if (is_file(COMMON_PATH . 'config/' . $file . CONF_EXT)) {
-                        // 导入路由配置
-                        $rules = include COMMON_PATH . 'config/' . $file . CONF_EXT;
-                        is_array($rules) && Route::import($rules);
-                    }
-                }
-            }
-
             // 路由检测（根据路由定义返回不同的URL调度）
             $result = Route::check($request, $path, $depr, $config['URL_DOMAIN_DEPLOY']);
             $must = !is_null(self::$routeMust) ? self::$routeMust : $config['URL_ROUTE_MUST'];
@@ -633,7 +614,7 @@ class App
 
     /**
      * @param TcpConnection $connection
-     * @param \Webman\Http\Request $request
+     * @param \think\Request $request
      * @return null
      */
     public function onMessage(TcpConnection $connection, $request)
@@ -649,8 +630,38 @@ class App
             static::$_connection = $connection;
             $path = $request->path();
             $key = $request->method() . $path;
+            $config = C();
 
-            static::send($connection, $key, $request);
+            $header = [];
+
+            // 设置参数过滤规则
+            $request->filter(C('DEFAULT_FILTER'));
+
+            $request::instance($request);
+
+            // 进行 URL 路由检测
+            $dispatch = self::routeCheck($request, $config);
+
+
+            // 应用初始化标签
+            Hook::listen('app_init');
+
+            // 应用开始标签
+            Hook::listen('app_begin');
+
+            // 处理跨域
+            $checkCorsResult = Cors::check($request);
+
+            if ($checkCorsResult instanceof Response) {
+                // Options请求直接返回
+                $data = $checkCorsResult;
+            } else {
+                $header = $checkCorsResult;
+                $data = self::exec($dispatch, $config);
+            }
+
+            static::send($connection, json_encode($data), $request);
+
         } catch (\Throwable $e) {
             static::send($connection, $e->getMessage(), $request);
         }

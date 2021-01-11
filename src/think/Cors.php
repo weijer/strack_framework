@@ -39,7 +39,7 @@ class Cors
             'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Token, X-Userinfo, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, X-Requested-With,Accept,Origin, Device-Unique-Code',
         ];
 
-        if ($request->method(true) == 'OPTIONS') {
+        if ($request->method() == 'OPTIONS') {
             return Response::create()->code(204)->header($header);
         }
 

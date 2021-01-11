@@ -16,7 +16,7 @@ use think\exception\HttpException;
 class Route
 {
     // 路由规则
-    private static $rules = [
+    public static $rules = [
         'get' => [],
         'post' => [],
         'put' => [],
