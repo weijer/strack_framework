@@ -89,7 +89,7 @@ class Request extends \Workerman\Protocols\Http\Request
      * @param $buffer
      * @throws \Exception
      */
-    protected function __construct($buffer)
+    public function __construct($buffer)
     {
 
         parent::__construct($buffer);
