@@ -1668,6 +1668,16 @@ if (!function_exists('config_path')) {
     }
 }
 
+if (!function_exists('public_path')) {
+    /**
+     * @return string
+     */
+    function public_path()
+    {
+        return ROOT_PATH . 'public';
+    }
+}
+
 if (!function_exists('create_uuid')) {
     /**
      * 生成uuid
