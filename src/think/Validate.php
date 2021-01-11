@@ -971,7 +971,7 @@ class Validate
      */
     public function method($value, $rule)
     {
-        return strtoupper($rule) == $_SERVER['REQUEST_METHOD'];
+        return strtoupper($rule) == Request::instance()->method();
     }
 
     /**

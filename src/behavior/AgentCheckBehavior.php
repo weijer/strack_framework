@@ -10,6 +10,8 @@
 // +----------------------------------------------------------------------
 namespace behavior;
 
+use think\Request;
+
 /**
  * 行为扩展：代理检测
  */
@@ -19,7 +21,9 @@ class AgentCheckBehavior
     {
         // 代理访问检测
         $limitProxyVisit = C('LIMIT_PROXY_VISIT', null, true);
-        if ($limitProxyVisit && ($_SERVER['HTTP_X_FORWARDED_FOR'] || $_SERVER['HTTP_VIA'] || $_SERVER['HTTP_PROXY_CONNECTION'] || $_SERVER['HTTP_USER_AGENT_VIA'])) {
+
+        $request = Request::instance();
+        if ($limitProxyVisit && ($request->header('X_FORWARDED_FOR') || $request->header('VIA') || $request->header('PROXY_CONNECTION') || $request->header('USER_AGENT_VIA'))) {
             // 禁止代理访问
             StrackE('Access Denied');
         }

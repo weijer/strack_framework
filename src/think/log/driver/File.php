@@ -49,10 +49,6 @@ class File
             rename($destination, dirname($destination) . '/' . time() . '-' . basename($destination));
         }
 
-        if (!IS_CLI) {
-            error_log("[{$now}] " . $_SERVER['REMOTE_ADDR'] . ' ' . $_SERVER['REQUEST_URI'] . "\r\n{$log}\r\n", 3, $destination);
-        }else{
-            error_log("[{$now}] " . "\r\n{$log}\r\n", 3, $destination);
-        }
+        error_log("[{$now}] " . "\r\n{$log}\r\n", 3, $destination);
     }
 }

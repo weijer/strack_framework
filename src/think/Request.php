@@ -138,12 +138,13 @@ class Request extends \Workerman\Protocols\Http\Request
 
     /**
      * 初始化
-     * @return mixed|null
+     * @return \think\Request
+     * @throws \Exception
      */
     public static function instance()
     {
         if (empty(self::$instance)) {
-            return null;
+            self::$instance = new static();
         }
         return self::$instance;
     }

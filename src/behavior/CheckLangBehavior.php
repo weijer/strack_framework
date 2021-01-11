@@ -10,6 +10,8 @@
 // +----------------------------------------------------------------------
 namespace behavior;
 
+use think\Request;
+
 /**
  * 语言检测 并自动加载语言包
  */
@@ -53,22 +55,24 @@ class CheckLangBehavior
 
         // 启用了语言包功能
         // 根据是否启用自动侦测设置获取语言选择
+        $request = Request::instance();
+        $getParam = $request->get();
 
         if (C('LANG_AUTO_DETECT', null, true)) {
-            if (array_key_exists($varLang, $_GET)) {
-                $langSet = $_GET[$varLang]; // url中设置了语言变量
+            if (array_key_exists($varLang, $getParam)) {
+                $langSet = $getParam[$varLang]; // url中设置了语言变量
                 cookie('think_language', $langSet, 3600);
             } elseif (cookie('think_language')) {
                 // 获取上次用户的选择
                 $langSet = cookie('think_language');
-            } elseif (isset($_SERVER['HTTP_ACCEPT_LANGUAGE'])) {
+            } elseif (!empty($request->header("ACCEPT_LANGUAGE"))) {
                 // 自动侦测浏览器语言
-                $locale = locale_accept_from_http($_SERVER['HTTP_ACCEPT_LANGUAGE']);
+                $locale = locale_accept_from_http($request->header("ACCEPT_LANGUAGE"));
                 //preg_match('/^([a-z\d\-]+)/i', $_SERVER['HTTP_ACCEPT_LANGUAGE'], $matches);
 
-                if(isset($locale) && array_key_exists($locale, $this->acceptLanguage)){
+                if (isset($locale) && array_key_exists($locale, $this->acceptLanguage)) {
                     $langSet = $this->acceptLanguage[$locale];
-                }else{
+                } else {
                     $langSet = 'en-us';
                 }
 
@@ -81,7 +85,7 @@ class CheckLangBehavior
         }
 
         // 定义当前语言
-        defined('LANG_SET') or define('LANG_SET',  'en-us');
+        defined('LANG_SET') or define('LANG_SET', 'en-us');
 
         // 读取框架语言包
         $file = LIB_PATH . 'lang/' . LANG_SET . '.php';

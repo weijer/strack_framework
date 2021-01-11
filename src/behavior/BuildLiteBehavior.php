@@ -55,8 +55,6 @@ class BuildLiteBehavior
                 CORE_PATH . 'Storage' . EXT,
                 CORE_PATH . 'storage/driver/File' . EXT,
                 CORE_PATH . 'Exception' . EXT,
-                BEHAVIOR_PATH . 'ParseTemplateBehavior' . EXT,
-                BEHAVIOR_PATH . 'ContentReplaceBehavior' . EXT,
             );
 
         // 编译文件
