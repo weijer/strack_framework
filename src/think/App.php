@@ -10,8 +10,14 @@
 // +----------------------------------------------------------------------
 namespace think;
 
+use Psr\Container\ContainerInterface;
 use think\exception\HttpResponseException;
 use think\exception\HttpException;
+use think\Exception\ExceptionHandler;
+use think\Exception\ExceptionHandlerInterface;
+use Workerman\Connection\TcpConnection;
+use Workerman\Timer;
+use Workerman\Worker;
 
 class App
 {
@@ -49,6 +55,90 @@ class App
      * @var array 请求调度分发
      */
     protected static $dispatch;
+
+    /**
+     * @var bool
+     */
+    protected static $_supportStaticFiles = true;
+
+    /**
+     * @var bool
+     */
+    protected static $_supportPHPFiles = false;
+
+    /**
+     * @var array
+     */
+    protected static $_callbacks = [];
+
+    /**
+     * @var Worker
+     */
+    protected static $_worker = null;
+
+    /**
+     * @var ContainerInterface
+     */
+    protected static $_container = null;
+
+    /**
+     * @var Logger
+     */
+    protected static $_logger = null;
+
+    /**
+     * @var string
+     */
+    protected static $_publicPath = '';
+
+    /**
+     * @var string
+     */
+    protected static $_configPath = '';
+
+    /**
+     * @var TcpConnection
+     */
+    protected static $_connection = null;
+
+    /**
+     * @var Request
+     */
+    protected static $_request = null;
+
+    /**
+     * @var int
+     */
+    protected static $_maxRequestCount = 1000000;
+
+    /**
+     * @var int
+     */
+    protected static $_gracefulStopTimer = null;
+
+
+    /**
+     * App constructor.
+     * @param Worker $worker
+     * @param $container
+     * @param $logger
+     * @param $app_path
+     * @param $public_path
+     */
+    public function __construct(Worker $worker, $container, $logger, $app_path, $public_path)
+    {
+        static::$_worker = $worker;
+        static::$_container = $container;
+        static::$_logger = $logger;
+        static::$_publicPath = $public_path;
+        static::loadController($app_path);
+
+        $max_requst_count = (int)C('SERVER.max_request');
+        if ($max_requst_count > 0) {
+            static::$_maxRequestCount = $max_requst_count;
+        }
+        static::$_supportStaticFiles = true;
+    }
 
 
     /**
@@ -327,8 +417,8 @@ class App
     /**
      * URL路由检测（根据PATH_INFO)
      * @access public
-     * @param  \think\Request $request 请求实例
-     * @param  array $config 配置信息
+     * @param \think\Request $request 请求实例
+     * @param array $config 配置信息
      * @return array
      * @throws \think\Exception
      */
@@ -541,13 +631,372 @@ class App
         return $reflect->invokeArgs(isset($class) ? $class : null, $args);
     }
 
+    /**
+     * @param TcpConnection $connection
+     * @param \Webman\Http\Request $request
+     * @return null
+     */
+    public function onMessage(TcpConnection $connection, $request)
+    {
+        static $request_count = 0;
+
+        if (++$request_count > static::$_maxRequestCount) {
+            static::tryToGracefulExit();
+        }
+
+        try {
+            static::$_request = $request;
+            static::$_connection = $connection;
+            $path = $request->path();
+            $key = $request->method() . $path;
+
+            static::send($connection, $key, $request);
+        } catch (\Throwable $e) {
+            static::send($connection, $e->getMessage(), $request);
+        }
+        return null;
+    }
+
+    protected static function exceptionResponse(\Throwable $e, $request)
+    {
+        try {
+            $app = $request->app ?: '';
+            $exception_config = Config::get('exception');
+            $default_exception = $exception_config[''] ?? ExceptionHandler::class;
+            $exception_handler_class = $exception_config[$app] ?? $default_exception;
+
+            /** @var ExceptionHandlerInterface $exception_handler */
+            $exception_handler = static::$_container->make($exception_handler_class, [
+                'logger' => static::$_logger,
+                'debug' => Config::get('app.debug')
+            ]);
+            $exception_handler->report($e);
+            $response = $exception_handler->render($request, $e);
+            return $response;
+        } catch (\Throwable $e) {
+            return Config::get('app.debug') ? (string)$e : $e->getMessage();
+        }
+    }
 
     /**
-     * tp logo
+     * @param $app
+     * @param $call
+     * @param null $args
+     * @param bool $with_global_middleware
+     * @param RouteObject $route
+     * @return \Closure|mixed
+     */
+    protected static function getCallback($app, $call, $args = null, $with_global_middleware = true, $route = null)
+    {
+        $args = $args === null ? null : \array_values($args);
+        if ($args === null) {
+            $callback = $call;
+        } else {
+            $callback = function ($request) use ($call, $args) {
+                return $call($request, ...$args);
+            };
+        }
+        return $callback;
+    }
+
+    /**
+     * @return ContainerInterface
+     */
+    public static function container()
+    {
+        return static::$_container;
+    }
+
+    /**
+     * @return Request
+     */
+    public static function request()
+    {
+        return static::$_request;
+    }
+
+    /**
+     * @return TcpConnection
+     */
+    public static function connection()
+    {
+        return static::$_connection;
+    }
+
+    /**
+     * @return Worker
+     */
+    public static function worker()
+    {
+        return static::$_worker;
+    }
+
+    /**
+     * @param $connection
+     * @param $path
+     * @param $key
+     * @param Request $request
+     * @return bool
+     */
+    protected static function findRoute($connection, $path, $key, Request $request)
+    {
+        $ret = Route::dispatch($request->method(), $path);
+        if ($ret[0] === Dispatcher::FOUND) {
+            $ret[0] = 'route';
+            $callback = $ret[1]['callback'];
+            $route = $ret[1]['route'];
+            $app = $controller = $action = '';
+            $args = !empty($ret[2]) ? $ret[2] : null;
+            if (\is_array($callback) && isset($callback[0]) && $controller = \get_class($callback[0])) {
+                $app = static::getAppByController($controller);
+                $action = static::getRealMethod($controller, $callback[1]) ?? '';
+            }
+            $callback = static::getCallback($app, $callback, $args, true, $route);
+            static::$_callbacks[$key] = [$callback, $app, $controller ? $controller : '', $action];
+            list($callback, $request->app, $request->controller, $request->action) = static::$_callbacks[$key];
+            static::send($connection, $callback($request), $request);
+            if (\count(static::$_callbacks) > 1024) {
+                static::clearCache();
+            }
+            return true;
+        }
+        return false;
+    }
+
+
+    /**
+     * @param $connection
+     * @param $path
+     * @param $key
+     * @param $request
+     * @return bool
+     */
+    protected static function findFile($connection, $path, $key, $request)
+    {
+        $public_dir = static::$_publicPath;
+        $file = \realpath("$public_dir/$path");
+        if (false === $file || false === \is_file($file)) {
+            return false;
+        }
+
+        // Security check
+        if (strpos($file, $public_dir) !== 0) {
+            static::send($connection, new Response(400), $request);
+            return true;
+        }
+        if (\pathinfo($file, PATHINFO_EXTENSION) === 'php') {
+            if (!static::$_supportPHPFiles) {
+                return false;
+            }
+            static::$_callbacks[$key] = [function ($request) use ($file) {
+                return static::execPhpFile($file);
+            }, '', '', ''];
+            list($callback, $request->app, $request->controller, $request->action) = static::$_callbacks[$key];
+            static::send($connection, static::execPhpFile($file), $request);
+            return true;
+        }
+
+        if (!static::$_supportStaticFiles) {
+            return false;
+        }
+
+        static::$_callbacks[$key] = [static::getCallback('__static__', function ($request) use ($file) {
+            return (new Response())->file($file);
+        }, null, false), '', '', ''];
+        list($callback, $request->app, $request->controller, $request->action) = static::$_callbacks[$key];
+        static::send($connection, $callback($request), $request);
+        return true;
+    }
+
+    /**
+     * @param TcpConnection $connection
+     * @param $response
+     * @param Request $request
+     */
+    protected static function send(TcpConnection $connection, $response, Request $request)
+    {
+        $keep_alive = $request->header('connection');
+        if (($keep_alive === null && $request->protocolVersion() === '1.1')
+            || $keep_alive === 'keep-alive' || $keep_alive === 'Keep-Alive'
+        ) {
+            $connection->send($response);
+            return;
+        }
+        $connection->close($response);
+    }
+
+    /**
+     * @param TcpConnection $connection
+     * @param $request
+     */
+    protected static function send404(TcpConnection $connection, $request)
+    {
+        static::send($connection, new Response(404, [], file_get_contents(static::$_publicPath . '/404.html')), $request);
+    }
+
+    /**
+     * @param $path
+     * @return array|bool
+     */
+    protected static function parseControllerAction($path)
+    {
+        if ($path === '/' || $path === '') {
+            $controller_class = 'app\controller\Index';
+            $action = 'index';
+            if (\class_exists($controller_class, false) && \is_callable([static::$_container->get($controller_class), $action])) {
+                return [
+                    'app' => '',
+                    'controller' => \app\controller\Index::class,
+                    'action' => static::getRealMethod($controller_class, $action)
+                ];
+            }
+            $controller_class = 'app\index\controller\Index';
+            if (\class_exists($controller_class, false) && \is_callable([static::$_container->get($controller_class), $action])) {
+                return [
+                    'app' => 'index',
+                    'controller' => \app\index\controller\Index::class,
+                    'action' => static::getRealMethod($controller_class, $action)
+                ];
+            }
+            return false;
+        }
+        if ($path && $path[0] === '/') {
+            $path = \substr($path, 1);
+        }
+        $explode = \explode('/', $path);
+        $action = 'index';
+
+        $controller = $explode[0];
+        if ($controller === '') {
+            return false;
+        }
+        if (!empty($explode[1])) {
+            $action = $explode[1];
+        }
+        $controller_class = "app\\controller\\$controller";
+        if (\class_exists($controller_class, false) && \is_callable([static::$_container->get($controller_class), $action])) {
+            return [
+                'app' => '',
+                'controller' => \get_class(static::$_container->get($controller_class)),
+                'action' => static::getRealMethod($controller_class, $action)
+            ];
+        }
+
+        $app = $explode[0];
+        $controller = $action = 'index';
+        if (!empty($explode[1])) {
+            $controller = $explode[1];
+            if (!empty($explode[2])) {
+                $action = $explode[2];
+            }
+        }
+        $controller_class = "app\\$app\\controller\\$controller";
+        if (\class_exists($controller_class, false) && \is_callable([static::$_container->get($controller_class), $action])) {
+            return [
+                'app' => $app,
+                'controller' => \get_class(static::$_container->get($controller_class)),
+                'action' => static::getRealMethod($controller_class, $action)
+            ];
+        }
+        return false;
+    }
+
+    /**
+     * @param $controller_calss
      * @return string
      */
-    public static function logo()
+    protected static function getAppByController($controller_calss)
     {
-        return 'iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyBpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMC1jMDYwIDYxLjEzNDc3NywgMjAxMC8wMi8xMi0xNzozMjowMCAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNSBXaW5kb3dzIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjVERDVENkZGQjkyNDExRTE5REY3RDQ5RTQ2RTRDQUJCIiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOjVERDVENzAwQjkyNDExRTE5REY3RDQ5RTQ2RTRDQUJCIj4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6NURENUQ2RkRCOTI0MTFFMTlERjdENDlFNDZFNENBQkIiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6NURENUQ2RkVCOTI0MTFFMTlERjdENDlFNDZFNENBQkIiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz5fx6IRAAAMCElEQVR42sxae3BU1Rk/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';
+        if ($controller_calss[0] === '\\') {
+            $controller_calss = \substr($controller_calss, 1);
+        }
+        $tmp = \explode('\\', $controller_calss, 3);
+        if (!isset($tmp[1])) {
+            return '';
+        }
+        return $tmp[1] === 'controller' ? '' : $tmp[1];
+    }
+
+    /**
+     * @param $file
+     * @return string
+     */
+    public static function execPhpFile($file)
+    {
+        \ob_start();
+        // Try to include php file.
+        try {
+            include $file;
+        } catch (\Exception $e) {
+            echo $e;
+        }
+        return \ob_get_clean();
+    }
+
+    /**
+     * @return void
+     */
+    public static function loadController($path)
+    {
+        if (\strpos($path, 'phar://') === false) {
+            foreach (\glob($path . '/controller/*.php') as $file) {
+                require_once $file;
+            }
+            foreach (\glob($path . '/*/controller/*.php') as $file) {
+                require_once $file;
+            }
+        } else {
+            $dir_iterator = new \RecursiveDirectoryIterator($path);
+            $iterator = new \RecursiveIteratorIterator($dir_iterator);
+            foreach ($iterator as $file) {
+                if (is_dir($file)) {
+                    continue;
+                }
+                $fileinfo = new \SplFileInfo($file);
+                $ext = $fileinfo->getExtension();
+                if (\strpos($file, '/controller/') !== false && $ext === 'php') {
+                    require_once $file;
+                }
+            }
+        }
+    }
+
+    /**
+     * Clear cache.
+     */
+    public static function clearCache()
+    {
+        static::$_callbacks = [];
+    }
+
+    /**
+     * @param $class
+     * @param $method
+     * @return string
+     */
+    protected static function getRealMethod($class, $method)
+    {
+        $method = \strtolower($method);
+        $methods = \get_class_methods($class);
+        foreach ($methods as $candidate) {
+            if (\strtolower($candidate) === $method) {
+                return $candidate;
+            }
+        }
+        return $method;
+    }
+
+    /**
+     * @return void
+     */
+    protected static function tryToGracefulExit()
+    {
+        if (static::$_gracefulStopTimer === null) {
+            static::$_gracefulStopTimer = Timer::add(rand(1, 10), function () {
+                if (\count(static::$_worker->connections) === 0) {
+                    Worker::stopAll();
+                }
+            });
+        }
     }
 }
