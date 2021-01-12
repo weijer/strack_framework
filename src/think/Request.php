@@ -94,6 +94,27 @@ class Request extends \Workerman\Protocols\Http\Request
     // 请求批次号
     public static $batchNumber = '';
 
+    // 模块数据
+    public static $moduleDictData = [];
+
+    // 复杂过滤条件涉及到的关联模块
+    public static $complexFilterRelatedModule = [];
+
+    // 当前请求绑定的project_id
+    public static $projectId = 0;
+
+    // 当前请求绑定的tenant_id
+    public static $tenantId = 0;
+
+    // 当前请求绑定的user_uuid
+    public static $userUUID = "";
+
+    // 当前请求绑定的user_id
+    public static $userId = 0;
+
+    // 当前请求绑定的x-userinfo
+    public static $xuserinfo = "";
+
 
     /**
      * 构造函数
@@ -155,10 +176,15 @@ class Request extends \Workerman\Protocols\Http\Request
      */
     public static function instance($request = null)
     {
-        if (empty(self::$instance)) {
+        if (!empty($request)) {
             self::$instance = $request;
         }
-        return self::$instance;
+
+        if(!empty(self::$instance)){
+            return self::$instance;
+        }else{
+            throw_strack_exception("The request object does not exist.", -404);
+        }
     }
 
 
@@ -318,24 +344,25 @@ class Request extends \Workerman\Protocols\Http\Request
      */
     public function param($name = '', $default = null, $filter = '')
     {
-        if (empty($this->param)) {
-            $method = $this->method();
-            // 自动获取请求变量
-            switch ($method) {
-                case 'POST':
-                    $vars = $this->post(false);
-                    break;
-                case 'PUT':
-                case 'DELETE':
-                case 'PATCH':
-                    $vars = $this->put(false);
-                    break;
-                default:
-                    $vars = [];
-            }
-            // 当前请求参数和URL地址中的参数合并
-            $this->param = array_merge($this->get(), $vars);
+        $method = $this->method();
+
+        // 自动获取请求变量
+        switch ($method) {
+            case 'POST':
+                $vars = $this->post();
+                break;
+            case 'PUT':
+            case 'DELETE':
+            case 'PATCH':
+                $vars = $this->put();
+                break;
+            default:
+                $vars = [];
         }
+
+        // 当前请求参数和URL地址中的参数合并
+        $this->param = array_merge($this->get(), $vars);
+
         if (true === $name) {
             // 获取包含文件上传信息的数组
             $file = parent::file();
@@ -357,13 +384,19 @@ class Request extends \Workerman\Protocols\Http\Request
      */
     public function get($name = '', $default = null, $filter = '')
     {
-        if (empty($this->get)) {
-            $this->get = parent::get($name, $default);
+        $getContent = parent::get($name, $default);
+
+        if(empty($name) && $getContent === null){
+            $this->get = [];
+        }else{
+            $this->get = $getContent;
         }
+
         if (is_array($name)) {
             $this->param = [];
             return $this->get = array_merge($this->get, $name);
         }
+
         return $this->input($this->get, $name, $default, $filter);
     }
 
@@ -394,15 +427,15 @@ class Request extends \Workerman\Protocols\Http\Request
      */
     public function post($name = '', $default = null, $filter = '')
     {
-        if (empty($this->post)) {
-            $postContent = parent::post();
-            if (empty($postContent) && false !== strpos($this->contentType(), 'application/json')) {
-                $content = $this->rawBody();
-                $this->post = (array)json_decode($content, true);
-            } else {
-                $this->post = $postContent;
-            }
+        $postContent = parent::post();
+
+        if (empty($postContent) && false !== strpos($this->contentType(), 'application/json')) {
+            $content = $this->rawBody();
+            $this->post = (array)json_decode($content, true);
+        } else {
+            $this->post = $postContent;
         }
+
         if (is_array($name)) {
             $this->param = [];
             return $this->post = array_merge($this->post, $name);
@@ -420,14 +453,13 @@ class Request extends \Workerman\Protocols\Http\Request
      */
     public function put($name = '', $default = null, $filter = '')
     {
-        if (is_null($this->put)) {
-            $content = $this->rawBody();
-            if (false !== strpos($this->contentType(), 'application/json')) {
-                $this->put = (array)json_decode($content, true);
-            } else {
-                parse_str($content, $this->put);
-            }
+        $content = $this->rawBody();
+        if (false !== strpos($this->contentType(), 'application/json')) {
+            $this->put = (array)json_decode($content, true);
+        } else {
+            parse_str($content, $this->put);
         }
+
         if (is_array($name)) {
             $this->param = [];
             return $this->put = is_null($this->put) ? $name : array_merge($this->put, $name);
@@ -518,6 +550,7 @@ class Request extends \Workerman\Protocols\Http\Request
                 return $data;
             }
         }
+
 
         // 解析过滤器
         $filter = $this->getFilter($filter, $default);

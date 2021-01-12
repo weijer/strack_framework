@@ -330,7 +330,7 @@ class Loader
 
         // 系统常量定义
         defined('DS') or define('DS', DIRECTORY_SEPARATOR);   // 分隔符常量
-        defined('EXT') or define('EXT',  '.php'); // 类文件后缀
+        defined('EXT') or define('EXT', '.php'); // 类文件后缀
         defined('ROOT_PATH') or define('ROOT_PATH', dirname(realpath(APP_PATH)) . DS);
         defined('RUNTIME_PATH') or define('RUNTIME_PATH', ROOT_PATH . 'runtime/');   // 定义缓存目录
         defined('APP_STATUS') or define('APP_STATUS', ''); // 应用状态 加载对应的配置文件
@@ -448,7 +448,7 @@ class Loader
         // 检查应用目录文件夹
         //self::checkAppDir();
 
-        if(self::$configCacheRefresh){
+        if (self::$configCacheRefresh) {
             Storage::put(self::$configCacheFile, json_encode(self::$configCache));
         }
 
@@ -571,15 +571,13 @@ class Loader
         list($module, $class) = self::getModuleAndClass($name, $layer, $appendSuffix);
 
         if (class_exists($class)) {
-            return App::invokeClass($class);
-        }
-
-        if ($empty) {
-            $emptyClass = self::parseClass($module, $layer, $empty, $appendSuffix);
-
-            if (class_exists($emptyClass)) {
-                return new $emptyClass(Request::instance());
+            $controllerObj = APP::container()->getObjByName($class);
+            if ($controllerObj === false) {
+                $controllerObj = App::invokeClass($class);
+                APP::container()->set($class, $controllerObj);
             }
+
+            return $controllerObj;
         }
 
         throw new ClassNotFoundException('class not exists:' . $class, $class);

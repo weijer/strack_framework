@@ -174,7 +174,7 @@ if (!function_exists('throw_strack_exception')) {
             "msg" => $msg,
             "data" => $data
         ];
-        $response = new \think\Response(json_encode($errorData));
+        $response = Response::create($errorData, "json");
         throw new think\exception\HttpResponseException($response);
     }
 }

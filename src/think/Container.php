@@ -1,12 +1,13 @@
 <?php
+
 namespace think;
 
 use Psr\Container\ContainerInterface;
-use Webman\Exception\NotFoundException;
+use think\exception\ClassNotFoundException;
 
 /**
  * Class Container
- * @package Webman
+ * @package think
  */
 class Container implements ContainerInterface
 {
@@ -25,9 +26,34 @@ class Container implements ContainerInterface
     {
         if (!isset($this->_instances[$name])) {
             if (!class_exists($name)) {
-                throw new NotFoundException("Class '$name' not found");
+                throw new ClassNotFoundException("Class '$name' not found");
             }
             $this->_instances[$name] = new $name();
+        }
+        return $this->_instances[$name];
+    }
+
+    /**
+     * @param $name
+     * @return mixed
+     */
+    public function getObjByName($name)
+    {
+        if (!empty($this->_instances[$name])) {
+            return $this->_instances[$name];
+        }
+        return false;
+    }
+
+    /**
+     * @param $name
+     * @param $obj
+     * @return mixed
+     */
+    public function set($name, $obj)
+    {
+        if (!isset($this->_instances[$name])) {
+            $this->_instances[$name] = $obj;
         }
         return $this->_instances[$name];
     }
@@ -50,7 +76,7 @@ class Container implements ContainerInterface
     public function make($name, array $constructor = [])
     {
         if (!class_exists($name)) {
-            throw new NotFoundException("Class '$name' not found");
+            throw new ClassNotFoundException("Class '$name' not found");
         }
         return new $name(... array_values($constructor));
     }

@@ -132,7 +132,7 @@ class App
         static::$_container = $container;
         static::$_logger = $logger;
         static::$_publicPath = $public_path;
-        static::loadController($app_path);
+        static::loadController($app_path . C("DEFAULT_MODULE"));
 
         $max_requst_count = (int)C('SERVER.max_request');
         if ($max_requst_count > 0) {
@@ -203,93 +203,6 @@ class App
     }
 
     /**
-     * 运行应用实例 入口文件使用的快捷方法
-     * @param Request|null $request
-     * @return array|Response
-     * @throws Exception
-     * @throws \ReflectionException
-     */
-    public static function run(Request $request = null)
-    {
-        $request = is_null($request) ? Request::instance() : $request;
-
-        $config = C();
-
-        $header = [];
-
-        try {
-
-            $request->filter(C('DEFAULT_FILTER'));
-
-            // 获取应用调度信息
-            $dispatch = self::$dispatch;
-
-            // 未设置调度信息则进行 URL 路由检测
-            if (empty($dispatch)) {
-                $dispatch = self::routeCheck($request, $config);
-            }
-
-            // 记录当前调度信息
-            $request->dispatch($dispatch);
-
-            // URL调度结束标签
-            Hook::listen('url_dispatch');
-
-            // 应用初始化标签
-            Hook::listen('app_init');
-
-            // 请求缓存检查
-            $request->cache(
-                $config['REQUEST_CACHE'],
-                $config['REQUEST_CACHE_EXPIRE'],
-                $config['REQUEST_CACHE_EXCEPT']
-            );
-
-            // 应用开始标签
-            Hook::listen('app_begin');
-
-            // 处理跨域
-            $checkCorsResult = Cors::check($request);
-            if ($checkCorsResult instanceof Response) {
-                // Options请求直接返回
-                $data = $checkCorsResult;
-            } else {
-                $header = $checkCorsResult;
-                $data = self::exec($dispatch, $config);
-            }
-
-        } catch (HttpResponseException $exception) {
-            $data = $exception->getResponse();
-        }
-
-
-        // 清空类的实例化
-        Loader::clearInstance();
-
-        // 输出数据到客户端
-        if ($data instanceof Response) {
-            $response = $data->header($header);
-        } elseif (!is_null($data)) {
-            // 默认自动识别响应输出类型
-            $type = $request->isAjax() ?
-                $config['DEFAULT_AJAX_RETURN'] :
-                $config['DEFAULT_RETURN_TYPE'];
-
-            $response = Response::create($data, $type)->header($header);
-        } else {
-            $response = Response::create()->header($header);
-        }
-
-        // 记录应用初始化时间
-        G('initTime');
-
-        // 应用结束标签
-        Hook::listen('app_end');
-
-        return $response;
-    }
-
-    /**
      * 执行模块
      * @access public
      * @param array $result 模块/控制器/操作
@@ -305,7 +218,6 @@ class App
         }
 
         $request = Request::instance();
-        
 
         if ($config['MULTI_MODULE']) {
             // 多模块部署
@@ -341,9 +253,6 @@ class App
             $request->module($module);
         }
 
-        // 设置默认过滤机制
-        $request->filter($config['DEFAULT_FILTER']);
-
         // 当前模块路径
         App::$modulePath = APP_PATH . ($module ? $module . DS : '');
 
@@ -361,53 +270,11 @@ class App
 
         // 获取操作名
         $actionName = strip_tags($result[2] ?: $config['DEFAULT_ACTION']);
-        if (!empty($config['ACTION_CONVERT'])) {
-            $actionName = Loader::parseName($actionName, 1);
-        } else {
-            $actionName = $convert ? strtolower($actionName) : $actionName;
-        }
-
-        // 设置当前请求的控制器、操作
-        $request->controller(Loader::parseName($controller, 1))->action($actionName);
-
-        // request hook
-        Hook::listen("request", $request);
-
-        try {
-            $instance = Loader::controller(
-                $controller,
-                $config['URL_CONTROLLER_LAYER'],
-                $config['CONTROLLER_SUFFIX'],
-                $config['EMPTY_CONTROLLER']
-            );
-        } catch (ClassNotFoundException $e) {
-            throw new HttpException(404, 'controller not exists:' . $e->getClass());
-        }
 
         // 获取当前操作名
         $action = $actionName . $config['ACTION_SUFFIX'];
 
-        $vars = [];
-        if (is_callable([$instance, $action])) {
-            // 执行操作方法
-            $call = [$instance, $action];
-            // 严格获取当前操作方法名
-            $reflect = new \ReflectionMethod($instance, $action);
-            $methodName = $reflect->getName();
-            $suffix = $config['ACTION_SUFFIX'];
-            $actionName = $suffix ? substr($methodName, 0, -strlen($suffix)) : $methodName;
-            $request->action($actionName);
-
-        } elseif (is_callable([$instance, '_empty'])) {
-            // 空操作
-            $call = [$instance, '_empty'];
-            $vars = [$actionName];
-        } else {
-            // 操作不存在
-            throw new HttpException(404, 'method not exists:' . get_class($instance) . '->' . $action . '()');
-        }
-
-        return self::invokeMethod($call, $vars);
+        return [$module, $controller, $action];
     }
 
     /**
@@ -421,7 +288,7 @@ class App
     public static function routeCheck($request, array $config)
     {
         $path = $request->path();
-        
+
         $depr = $config['URL_PATHINFO_DEPR'];
         $result = false;
 
@@ -452,44 +319,18 @@ class App
      * @return mixed
      * @throws \ReflectionException
      */
-    public static function exec($dispatch, $config)
+    public static function analysisModule($dispatch, $config)
     {
-        switch ($dispatch['type']) {
-            case 'redirect': // 重定向跳转
-                $data = Response::create($dispatch['url'], 'redirect')
-                    ->code($dispatch['status']);
-                break;
-            case 'module': // 模块/控制器/操作
-                $data = self::module(
-                    $dispatch['module'],
-                    $config,
-                    isset($dispatch['convert']) ? $dispatch['convert'] : null
-                );
-                break;
-            case 'controller': // 执行控制器操作
-                $vars = array_merge(Request::instance()->param(), $dispatch['var']);
-                $data = Loader::action(
-                    $dispatch['controller'],
-                    $vars,
-                    $config['URL_CONTROLLER_LAYER'],
-                    $config['CONTROLLER_SUFFIX']
-                );
-                break;
-            case 'method': // 回调方法
-                $vars = array_merge(Request::instance()->param(), $dispatch['var']);
-                $data = self::invokeMethod($dispatch['method'], $vars);
-                break;
-            case 'function': // 闭包
-                $data = self::invokeFunction($dispatch['function']);
-                break;
-            case 'response': // Response 实例
-                $data = $dispatch['response'];
-                break;
-            default:
-                throw new \InvalidArgumentException('dispatch type not support');
+        if ($dispatch['type'] === 'module') {
+            // 模块/控制器/操作
+            return self::module(
+                $dispatch['module'],
+                $config,
+                isset($dispatch['convert']) ? $dispatch['convert'] : null
+            );
         }
 
-        return $data;
+        throw new \InvalidArgumentException('dispatch type not support');
     }
 
     /**
@@ -579,12 +420,14 @@ class App
     public static function invokeClass($class, $vars = [])
     {
         $reflect = new \ReflectionClass($class);
+
         $constructor = $reflect->getConstructor();
         if ($constructor) {
             $args = self::bindParams($constructor, $vars);
         } else {
             $args = [];
         }
+
         return $reflect->newInstanceArgs($args);
     }
 
@@ -642,7 +485,6 @@ class App
             // 进行 URL 路由检测
             $dispatch = self::routeCheck($request, $config);
 
-
             // 应用初始化标签
             Hook::listen('app_init');
 
@@ -657,14 +499,45 @@ class App
                 $data = $checkCorsResult;
             } else {
                 $header = $checkCorsResult;
-                $data = self::exec($dispatch, $config);
+
+                // 存在路由
+                if (!empty($dispatch)) {
+                    $data = static::exec($connection, $path, $key, $request, $dispatch, $config);
+                } else {
+                    // 不存在路由走模块/控制器/方法 默认匹配模式
+                    $controllerAndAction = static::parseControllerAction($path, $dispatch, $config);
+                }
+
             }
-
-            static::send($connection, json_encode($data), $request);
-
+        } catch (HttpResponseException $exception) {
+            $data = $exception->getResponse();
         } catch (\Throwable $e) {
-            static::send($connection, $e->getMessage(), $request);
+            $data = Response::create(["code" => $e->getCode(), "msg" => $e->getMessage()], "json");;
         }
+
+
+        // 输出数据到客户端
+        if ($data instanceof Response) {
+            $response = $data->header($header);
+        } elseif (!is_null($data)) {
+            // 默认自动识别响应输出类型
+            $type = $request->isAjax() ?
+                $config['DEFAULT_AJAX_RETURN'] :
+                $config['DEFAULT_RETURN_TYPE'];
+
+            $response = Response::create($data, $type)->header($header);
+        } else {
+            $response = Response::create()->header($header);
+        }
+
+        // 记录应用初始化时间
+        G('initTime');
+
+        // 应用结束标签
+        Hook::listen('app_end');
+
+        static::send($connection, $response->renderWorkermanData(), $request);
+
         return null;
     }
 
@@ -747,31 +620,42 @@ class App
      * @param $path
      * @param $key
      * @param Request $request
+     * @param $dispatch
+     * @param $config
      * @return bool
+     * @throws \ReflectionException
      */
-    protected static function findRoute($connection, $path, $key, Request $request)
+    protected static function exec($connection, $path, $key, Request $request, $dispatch, $config)
     {
-        $ret = Route::dispatch($request->method(), $path);
-        if ($ret[0] === Dispatcher::FOUND) {
-            $ret[0] = 'route';
-            $callback = $ret[1]['callback'];
-            $route = $ret[1]['route'];
-            $app = $controller = $action = '';
-            $args = !empty($ret[2]) ? $ret[2] : null;
-            if (\is_array($callback) && isset($callback[0]) && $controller = \get_class($callback[0])) {
-                $app = static::getAppByController($controller);
-                $action = static::getRealMethod($controller, $callback[1]) ?? '';
-            }
-            $callback = static::getCallback($app, $callback, $args, true, $route);
-            static::$_callbacks[$key] = [$callback, $app, $controller ? $controller : '', $action];
-            list($callback, $request->app, $request->controller, $request->action) = static::$_callbacks[$key];
-            static::send($connection, $callback($request), $request);
-            if (\count(static::$_callbacks) > 1024) {
-                static::clearCache();
-            }
-            return true;
+        list($app, $controller, $action) = self::analysisModule($dispatch, $config);
+
+        // 设置当前请求的控制器、操作
+        $request->controller(Loader::parseName($controller, 1))->action($action);
+
+        // 验证请求Token，排除登陆方法
+        Hook::listen("request", $request);
+
+        try {
+            $controllerObj = Loader::controller(
+                $controller,
+                $config['URL_CONTROLLER_LAYER'],
+                $config['CONTROLLER_SUFFIX'],
+                $config['EMPTY_CONTROLLER']
+            );
+        } catch (ClassNotFoundException $e) {
+            throw new HttpException(-404, 'controller not exists:' . $e->getClass());
         }
-        return false;
+
+        if (\is_callable([$controllerObj, $action])) {
+            $callback = static::getCallback($app, [$controllerObj, $action]);
+        } else {
+            throw new HttpException(-404, 'action not exists:' . $action);
+        }
+
+
+        static::$_callbacks[$key] = [$callback, $app, $controller, $action];
+        list($callback, $request->app, $request->controller, $request->action) = static::$_callbacks[$key];
+        return $callback($request);
     }
 
 
@@ -847,68 +731,39 @@ class App
 
     /**
      * @param $path
+     * @param $dispatch
+     * @param $config
      * @return array|bool
+     * @throws \ReflectionException
      */
-    protected static function parseControllerAction($path)
+    protected static function parseControllerAction($path, $dispatch, $config)
     {
         if ($path === '/' || $path === '') {
-            $controller_class = 'app\controller\Index';
+            $controlleClass = 'api\controller\IndexController';
             $action = 'index';
-            if (\class_exists($controller_class, false) && \is_callable([static::$_container->get($controller_class), $action])) {
+            if (\class_exists($controlleClass, false) && \is_callable([static::$_container->get($controlleClass), $action])) {
                 return [
                     'app' => '',
-                    'controller' => \app\controller\Index::class,
-                    'action' => static::getRealMethod($controller_class, $action)
-                ];
-            }
-            $controller_class = 'app\index\controller\Index';
-            if (\class_exists($controller_class, false) && \is_callable([static::$_container->get($controller_class), $action])) {
-                return [
-                    'app' => 'index',
-                    'controller' => \app\index\controller\Index::class,
-                    'action' => static::getRealMethod($controller_class, $action)
+                    'controller' => \api\controller\IndexController::class,
+                    'action' => static::getRealMethod($controlleClass, $action)
                 ];
             }
             return false;
         }
-        if ($path && $path[0] === '/') {
-            $path = \substr($path, 1);
-        }
-        $explode = \explode('/', $path);
-        $action = 'index';
 
-        $controller = $explode[0];
-        if ($controller === '') {
-            return false;
-        }
-        if (!empty($explode[1])) {
-            $action = $explode[1];
-        }
-        $controller_class = "app\\controller\\$controller";
-        if (\class_exists($controller_class, false) && \is_callable([static::$_container->get($controller_class), $action])) {
+
+        list($module, $controller, $action) = self::analysisModule($dispatch, $config);
+
+        $controlleClass = "{$module}\\controller\\{$controller}Controller";
+
+        if (\class_exists($controlleClass, false) && \is_callable([static::$_container->get($controlleClass), $action])) {
             return [
                 'app' => '',
-                'controller' => \get_class(static::$_container->get($controller_class)),
-                'action' => static::getRealMethod($controller_class, $action)
+                'controller' => \get_class(static::$_container->get($controlleClass)),
+                'action' => static::getRealMethod($controlleClass, $action)
             ];
         }
 
-        $app = $explode[0];
-        $controller = $action = 'index';
-        if (!empty($explode[1])) {
-            $controller = $explode[1];
-            if (!empty($explode[2])) {
-                $action = $explode[2];
-            }
-        }
-        $controller_class = "app\\$app\\controller\\$controller";
-        if (\class_exists($controller_class, false) && \is_callable([static::$_container->get($controller_class), $action])) {
-            return [
-                'app' => $app,
-                'controller' => \get_class(static::$_container->get($controller_class)),
-                'action' => static::getRealMethod($controller_class, $action)
-            ];
-        }
         return false;
     }
 

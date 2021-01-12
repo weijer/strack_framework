@@ -268,6 +268,34 @@ class Route
     }
 
     /**
+     * @param $path
+     * @param $callback
+     * @return array|bool|callable
+     */
+    public static function convertToCallable($path, $callback)
+    {
+        if (\is_array($callback)) {
+            $callback = \array_values($callback);
+        }
+        if (\is_callable($callback)) {
+            if (\is_array($callback) && \is_string($callback[0])) {
+                return [App::container()->get($callback[0]), $callback[1]];
+            }
+            return $callback;
+        }
+
+        $callback = \explode('/', $path);
+        $module = C("DEFAULT_MODULE");
+        $controller =  "{$module}\\controller\\{$callback[0]}";;
+
+        if (isset($callback[1]) && \class_exists($controller) && \is_callable([App::container()->get($controller), $callback[1]])) {
+            return [App::container()->get($callback[0]), $callback[1]];
+        }
+        echo "Route set to $path is not callable\n";
+        return false;
+    }
+
+    /**
      * 设置路由规则
      * @access public
      * @param string|array $rule 路由规则
@@ -314,6 +342,7 @@ class Route
         if (isset($option['modular'])) {
             $route = $option['modular'] . '/' . $route;
         }
+
         if ($group) {
             if ('*' != $type) {
                 $option['method'] = $type;
@@ -1269,7 +1298,7 @@ class Route
             }
 
             if (isset(self::$rules['name'][$name]) || isset(self::$rules['name'][$name2])) {
-                throw new HttpException(404, 'invalid request:' . str_replace('|', $depr, $url));
+                throw new HttpException(-404, 'invalid request:' . str_replace('|', $depr, $url));
             }
         }
         return ['type' => 'module', 'module' => $route];

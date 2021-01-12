@@ -137,6 +137,16 @@ class Response
         }
     }
 
+    /**
+     * 渲染输出数据
+     */
+    public function renderWorkermanData()
+    {
+        // 处理输出数据
+        $data = $this->getContent();
+        return new \Workerman\Protocols\Http\Response($this->code, $this->header, $data);
+    }
+
 
     /**
      * 处理数据
