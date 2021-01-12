@@ -469,6 +469,9 @@ class App
         }
 
         try {
+            // 应用初始化标签
+            Hook::listen('app_init');
+
             static::$_request = $request;
             static::$_connection = $connection;
             $path = $request->path();
@@ -482,26 +485,37 @@ class App
 
             $request::instance($request);
 
-            // 进行 URL 路由检测
-            $dispatch = self::routeCheck($request, $config);
-
-            // 应用初始化标签
-            Hook::listen('app_init');
-
             // 应用开始标签
             Hook::listen('app_begin');
 
             // 处理跨域
             $checkCorsResult = Cors::check($request);
 
+            // 进行 URL 路由检测
             if ($checkCorsResult instanceof Response) {
                 // Options请求直接返回
                 $data = $checkCorsResult;
             } else {
                 $header = $checkCorsResult;
 
-                // 执行路由方法
-                $data = static::exec($connection, $path, $key, $request, $dispatch, $config);
+                if (isset(static::$_callbacks[$key])) {
+                    // 直接读取缓存对象
+                    list($callback, $request->app, $request->controller, $request->action) = static::$_callbacks[$key];
+
+                    // 执行路由方法
+                    $data = $callback($request);
+                } else {
+                    // 检测路由
+                    $dispatch = self::routeCheck($request, $config);
+
+                    // 执行路由方法
+                    $data = static::exec($key, $request, $dispatch, $config);
+                }
+
+                // 对象超过 1024 回收
+                if (\count(static::$_callbacks) > 1024) {
+                    static::clearCache();
+                }
             }
         } catch (HttpResponseException $exception) {
             $data = $exception->getResponse();
@@ -610,16 +624,14 @@ class App
     }
 
     /**
-     * @param $connection
-     * @param $path
      * @param $key
      * @param Request $request
      * @param $dispatch
      * @param $config
-     * @return bool
+     * @return mixed
      * @throws \ReflectionException
      */
-    protected static function exec($connection, $path, $key, Request $request, $dispatch, $config)
+    protected static function exec($key, Request $request, $dispatch, $config)
     {
         list($app, $controller, $action) = self::analysisModule($dispatch, $config);
 
