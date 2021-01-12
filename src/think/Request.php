@@ -180,9 +180,9 @@ class Request extends \Workerman\Protocols\Http\Request
             self::$instance = $request;
         }
 
-        if(!empty(self::$instance)){
+        if (!empty(self::$instance)) {
             return self::$instance;
-        }else{
+        } else {
             throw_strack_exception("The request object does not exist.", -404);
         }
     }
@@ -258,7 +258,7 @@ class Request extends \Workerman\Protocols\Http\Request
     {
         $suffix = C('URL_HTML_SUFFIX');
         $path = parent::path();
-        $this->path = substr_replace($path,"",0,1);
+        $this->path = substr_replace($path, "", 0, 1);
         return $this->path;
     }
 
@@ -344,6 +344,8 @@ class Request extends \Workerman\Protocols\Http\Request
      */
     public function param($name = '', $default = null, $filter = '')
     {
+        $this->param = [];
+
         $method = $this->method();
 
         // 自动获取请求变量
@@ -386,9 +388,9 @@ class Request extends \Workerman\Protocols\Http\Request
     {
         $getContent = parent::get($name, $default);
 
-        if(empty($name) && $getContent === null){
+        if (empty($name) && $getContent === null) {
             $this->get = [];
-        }else{
+        } else {
             $this->get = $getContent;
         }
 
@@ -551,16 +553,16 @@ class Request extends \Workerman\Protocols\Http\Request
             }
         }
 
-
         // 解析过滤器
-        $filter = $this->getFilter($filter, $default);
-
-        if (is_array($data)) {
-            array_walk_recursive($data, [$this, 'filterValue'], $filter);
-            $this->parserFilter($data);
-            reset($data);
-        } else {
-            $this->filterValue($data, $name, $filter);
+        if (!array_key_exists('parser_filter', $data)) {
+            $filter = $this->getFilter($filter, $default);
+            if (is_array($data)) {
+                array_walk_recursive($data, [$this, 'filterValue'], $filter);
+                $data = $this->parserFilter($data);
+            } else {
+                $this->filterValue($data, $name, $filter);
+            }
+            $data['parser_filter'] = true;
         }
 
         if (isset($type) && $data !== $default) {
@@ -576,7 +578,7 @@ class Request extends \Workerman\Protocols\Http\Request
      * @param $data
      * @return mixed
      */
-    public function parserFilter(&$data)
+    public function parserFilter($data)
     {
         if ((array_key_exists("param", $data) && array_key_exists("filter", $data['param'])) || array_key_exists("filter", $data)) {
             array_walk_recursive($data, [$this, 'parserFilterCondition']);

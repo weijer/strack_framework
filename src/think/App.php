@@ -500,14 +500,8 @@ class App
             } else {
                 $header = $checkCorsResult;
 
-                // 存在路由
-                if (!empty($dispatch)) {
-                    $data = static::exec($connection, $path, $key, $request, $dispatch, $config);
-                } else {
-                    // 不存在路由走模块/控制器/方法 默认匹配模式
-                    $controllerAndAction = static::parseControllerAction($path, $dispatch, $config);
-                }
-
+                // 执行路由方法
+                $data = static::exec($connection, $path, $key, $request, $dispatch, $config);
             }
         } catch (HttpResponseException $exception) {
             $data = $exception->getResponse();
