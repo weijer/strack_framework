@@ -268,34 +268,6 @@ class Route
     }
 
     /**
-     * @param $path
-     * @param $callback
-     * @return array|bool|callable
-     */
-    public static function convertToCallable($path, $callback)
-    {
-        if (\is_array($callback)) {
-            $callback = \array_values($callback);
-        }
-        if (\is_callable($callback)) {
-            if (\is_array($callback) && \is_string($callback[0])) {
-                return [App::container()->get($callback[0]), $callback[1]];
-            }
-            return $callback;
-        }
-
-        $callback = \explode('/', $path);
-        $module = C("DEFAULT_MODULE");
-        $controller =  "{$module}\\controller\\{$callback[0]}";;
-
-        if (isset($callback[1]) && \class_exists($controller) && \is_callable([App::container()->get($controller), $callback[1]])) {
-            return [App::container()->get($callback[0]), $callback[1]];
-        }
-        echo "Route set to $path is not callable\n";
-        return false;
-    }
-
-    /**
      * 设置路由规则
      * @access public
      * @param string|array $rule 路由规则
@@ -1418,7 +1390,7 @@ class Route
      */
     private static function parseRule($rule, $route, $pathinfo, $option = [], $matches = [], $fromCache = false)
     {
-        $request = Request::instance();
+        $request = \request();
 
         //保存解析缓存
         if (C('ROUTE_CHECK_CACHE') && !$fromCache) {
@@ -1586,13 +1558,13 @@ class Route
         $action = array_pop($path);
         $controller = !empty($path) ? array_pop($path) : null;
         $module = C('MULTI_MODULE') && !empty($path) ? array_pop($path) : null;
-        $method = Request::instance()->method();
+        $method = \request()->method();
         if (C('USE_ACTION_PREFIX') && !empty(self::$methodPrefix[$method])) {
             // 操作方法前缀支持
             $action = 0 !== strpos($action, self::$methodPrefix[$method]) ? self::$methodPrefix[$method] . $action : $action;
         }
         // 设置当前请求的路由变量
-        Request::instance()->route($var);
+        \request()->route($var);
         // 路由到模块/控制器/操作
         return ['type' => 'module', 'module' => [$module, $controller, $action], 'convert' => $convert];
     }
@@ -1616,7 +1588,7 @@ class Route
             }
         }
         // 设置当前请求的参数
-        Request::instance()->route($var);
+        \request()->route($var);
     }
 
     // 分析路由规则中的变量

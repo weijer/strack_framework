@@ -52,7 +52,7 @@ class Db
             }
 
             // 如果采用lite方式 仅支持原生SQL 包括query和execute方法
-            $class = !empty($options['lite']) ? 'think\db\Lite' : 'think\\db\\driver\\' . ucwords(strtolower($options['type']));
+            $class = 'think\\db\\driver\\' . ucwords(strtolower($options['type']));
             if (class_exists($class)) {
                 self::$instance[$md5] = new $class($options);
             } else {

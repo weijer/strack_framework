@@ -69,7 +69,6 @@ class [MODEL]Model extends Model
                 APP_PATH . $module . '/controller/',
                 APP_PATH . $module . '/model/',
                 APP_PATH . $module . '/config/',
-                APP_PATH . $module . '/view/',
                 RUNTIME_PATH,
                 CACHE_PATH,
                 CACHE_PATH . $module . '/',

@@ -93,6 +93,9 @@ class RelationModel extends Model
     // 复杂查询关联模型自定义字段映射
     protected $queryComplexRelationCustomFields = [];
 
+    // 复杂过滤条件涉及到的关联模块
+    protected $complexFilterRelatedModule = [];
+
     // 是否是复杂过滤条件
     protected $isComplexFilter = false;
 
@@ -1284,8 +1287,8 @@ class RelationModel extends Model
         }
 
         $fieldsParam = explode('.', $key);
-        if (!in_array($fieldsParam[0], Request::$complexFilterRelatedModule)) {
-            Request::$complexFilterRelatedModule[] = $fieldsParam[0];
+        if (!in_array($fieldsParam[0], $this->complexFilterRelatedModule)) {
+            $this->complexFilterRelatedModule[] = $fieldsParam[0];
         }
 
         if (!array_key_exists($fieldsParam[0], $filterItem)) {
@@ -1711,7 +1714,7 @@ class RelationModel extends Model
             // 取所有关联模块
             $queryModuleList = $horizontalModuleList;
 
-            foreach (Request::$complexFilterRelatedModule as $complexFilterRelatedModule) {
+            foreach ($this->complexFilterRelatedModule as $complexFilterRelatedModule) {
                 if (array_key_exists($complexFilterRelatedModule, $horizontalModuleList)) {
                     $queryModuleList[$complexFilterRelatedModule] = $horizontalModuleList[$complexFilterRelatedModule];
                 } else {
@@ -1859,9 +1862,9 @@ class RelationModel extends Model
         foreach ($fieldsArr as $fieldsItem) {
             if (strpos($fieldsItem, '.')) {
                 $fieldsParam = explode('.', $fieldsItem);
-                if (!in_array($fieldsParam[0], Request::$complexFilterRelatedModule)) {
+                if (!in_array($fieldsParam[0], $this->complexFilterRelatedModule)) {
                     $this->isComplexFilter = true;
-                    Request::$complexFilterRelatedModule[] = $fieldsParam[0];
+                    $this->complexFilterRelatedModule[] = $fieldsParam[0];
                 }
             }
         }
@@ -2399,7 +2402,7 @@ class RelationModel extends Model
     private function autoFillTenantIdFilter($filter)
     {
         $newFilter = [];
-        $tenantId = Request::$tenantId;
+        $tenantId = \request()->tenantId;
         if ($this->isComplexFilter) {
             // 关联查询
             if (!empty($filter)) {
@@ -2620,6 +2623,7 @@ class RelationModel extends Model
 
         // 统计个数
         $total = $this->count();
+
 
         // 获取数据
         if ($total >= 0) {
@@ -2855,8 +2859,8 @@ class RelationModel extends Model
 
             if (strpos($key, '.') > 0) {
                 $fieldsParam = explode('.', $key);
-                if (!in_array($fieldsParam[0], Request::$complexFilterRelatedModule)) {
-                    Request::$complexFilterRelatedModule[] = $fieldsParam[0];
+                if (!in_array($fieldsParam[0], $this->complexFilterRelatedModule)) {
+                    $this->complexFilterRelatedModule[] = $fieldsParam[0];
                 }
             }
         }

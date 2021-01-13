@@ -67,10 +67,10 @@ class Response
     /**
      * 架构函数
      * @access public
-     * @param  mixed $data 输出数据
-     * @param  int $code
-     * @param  array $header
-     * @param  array $options 输出参数
+     * @param mixed $data 输出数据
+     * @param int $code
+     * @param array $header
+     * @param array $options 输出参数
      */
     public function __construct($data = '', $code = 200, array $header = [], $options = [])
     {
@@ -89,11 +89,11 @@ class Response
     /**
      * 创建Response对象
      * @access public
-     * @param  mixed $data 输出数据
-     * @param  string $type 输出类型
-     * @param  int $code
-     * @param  array $header
-     * @param  array $options 输出参数
+     * @param mixed $data 输出数据
+     * @param string $type 输出类型
+     * @param int $code
+     * @param array $header
+     * @param array $options 输出参数
      * @return Response
      */
     public static function create($data = '', $type = '', $code = 200, array $header = [], $options = [])
@@ -108,6 +108,7 @@ class Response
 
         return $response;
     }
+
 
     /**
      * 发送数据到客户端
@@ -151,7 +152,7 @@ class Response
     /**
      * 处理数据
      * @access protected
-     * @param  mixed $data 要处理的数据
+     * @param mixed $data 要处理的数据
      * @return mixed
      */
     protected function output($data)
@@ -173,7 +174,7 @@ class Response
     /**
      * 输出的参数
      * @access public
-     * @param  mixed $options 输出参数
+     * @param mixed $options 输出参数
      * @return $this
      */
     public function options($options = [])
@@ -186,7 +187,7 @@ class Response
     /**
      * 输出数据设置
      * @access public
-     * @param  mixed $data 输出数据
+     * @param mixed $data 输出数据
      * @return $this
      */
     public function data($data)
@@ -199,7 +200,7 @@ class Response
     /**
      * 是否允许请求缓存
      * @access public
-     * @param  bool $cache 允许请求缓存
+     * @param bool $cache 允许请求缓存
      * @return $this
      */
     public function allowCache($cache)
@@ -212,8 +213,8 @@ class Response
     /**
      * 设置响应头
      * @access public
-     * @param  string|array $name 参数名
-     * @param  string $value 参数值
+     * @param string|array $name 参数名
+     * @param string $value 参数值
      * @return $this
      */
     public function header($name, $value = null)
@@ -230,7 +231,7 @@ class Response
     /**
      * 设置页面输出内容
      * @access public
-     * @param  mixed $content
+     * @param mixed $content
      * @return $this
      */
     public function content($content)
@@ -251,7 +252,7 @@ class Response
     /**
      * 发送HTTP状态
      * @access public
-     * @param  integer $code 状态码
+     * @param integer $code 状态码
      * @return $this
      */
     public function code($code)
@@ -264,7 +265,7 @@ class Response
     /**
      * LastModified
      * @access public
-     * @param  string $time
+     * @param string $time
      * @return $this
      */
     public function lastModified($time)
@@ -277,7 +278,7 @@ class Response
     /**
      * Expires
      * @access public
-     * @param  string $time
+     * @param string $time
      * @return $this
      */
     public function expires($time)
@@ -290,7 +291,7 @@ class Response
     /**
      * ETag
      * @access public
-     * @param  string $eTag
+     * @param string $eTag
      * @return $this
      */
     public function eTag($eTag)
@@ -303,7 +304,7 @@ class Response
     /**
      * 页面缓存控制
      * @access public
-     * @param  string $cache 缓存设置
+     * @param string $cache 缓存设置
      * @return $this
      */
     public function cacheControl($cache)
@@ -329,8 +330,8 @@ class Response
     /**
      * 页面输出类型
      * @access public
-     * @param  string $contentType 输出类型
-     * @param  string $charset 输出编码
+     * @param string $contentType 输出类型
+     * @param string $charset 输出编码
      * @return $this
      */
     public function contentType($contentType, $charset = 'utf-8')
@@ -343,7 +344,7 @@ class Response
     /**
      * 获取头部信息
      * @access public
-     * @param  string $name 头部名称
+     * @param string $name 头部名称
      * @return mixed
      */
     public function getHeader($name = '')
@@ -372,20 +373,19 @@ class Response
      */
     public function getContent()
     {
-        if (null == $this->content) {
-            $content = $this->output($this->data);
 
-            if (null !== $content && !is_string($content) && !is_numeric($content) && !is_callable([
-                    $content,
-                    '__toString',
-                ])
-            ) {
-                throw new \InvalidArgumentException(sprintf('variable type error： %s', gettype($content)));
-            }
+        $content = $this->output($this->data);
 
-            $this->content = (string)$content;
+        if (null !== $content && !is_string($content) && !is_numeric($content) && !is_callable([
+                $content,
+                '__toString',
+            ])
+        ) {
+            throw new \InvalidArgumentException(sprintf('variable type error： %s', gettype($content)));
         }
 
+        $this->content = (string)$content;
+        
         return $this->content;
     }
 

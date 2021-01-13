@@ -10,13 +10,12 @@
 // +----------------------------------------------------------------------
 namespace think;
 
+use think\exception\ClassNotFoundException;
 use Workerman\Worker;
 use Workerman\Timer;
 use Workerman\Connection\TcpConnection;
 use think\exception\HttpResponseException;
 use think\exception\HttpException;
-use think\Exception\ExceptionHandler;
-use think\Exception\ExceptionHandlerInterface;
 use Psr\Container\ContainerInterface;
 use Monolog\Logger;
 
@@ -51,11 +50,6 @@ class App
      * @var bool 严格路由检测
      */
     protected static $routeMust;
-
-    /**
-     * @var array 请求调度分发
-     */
-    protected static $dispatch;
 
     /**
      * @var bool
@@ -217,8 +211,6 @@ class App
             $result = explode('/', $result);
         }
 
-        $request = Request::instance();
-
         if ($config['MULTI_MODULE']) {
             // 多模块部署
             $module = strip_tags($result[0] ?: $config['DEFAULT_MODULE']);
@@ -243,14 +235,14 @@ class App
             if ($module && $available) {
 
                 // 初始化模块
-                $request->module($module);
+                static::$_request->module($module);
             } else {
                 throw new HttpException(404, 'module not exists:' . $module);
             }
         } else {
             // 单一模块部署
             $module = strip_tags($result[0] ?: $config['DEFAULT_MODULE']);
-            $request->module($module);
+            static::$_request->module($module);
         }
 
         // 当前模块路径
@@ -279,13 +271,12 @@ class App
 
     /**
      * URL路由检测（根据PATH_INFO)
-     * @access public
-     * @param \think\Request $request 请求实例
-     * @param array $config 配置信息
-     * @return array
-     * @throws \think\Exception
+     * @param Request $request
+     * @param array $config
+     * @return array|bool|false
+     * @throws \Exception
      */
-    public static function routeCheck($request, array $config)
+    public static function routeCheck(Request $request, array $config)
     {
         $path = $request->path();
 
@@ -316,6 +307,8 @@ class App
 
     /**
      * 执行应用程序
+     * @param $dispatch
+     * @param $config
      * @return mixed
      * @throws \ReflectionException
      */
@@ -333,25 +326,6 @@ class App
         throw new \InvalidArgumentException('dispatch type not support');
     }
 
-    /**
-     * 执行函数或者闭包方法 支持参数调用
-     * @access public
-     * @param string|array|\Closure $function 函数或者闭包
-     * @param array $vars 变量
-     * @return mixed
-     * @throws \ReflectionException
-     */
-    public static function invokeFunction($function, $vars = [])
-    {
-        $reflect = new \ReflectionFunction($function);
-        $args = self::bindParams($reflect, $vars);
-
-        // 记录执行信息
-        APP_DEBUG && Log::record('[ RUN ] ' . $reflect->__toString(), 'info');
-
-        return $reflect->invokeArgs($args);
-    }
-
 
     /**
      * 绑定参数
@@ -365,9 +339,9 @@ class App
         if (empty($vars)) {
             // 自动获取请求变量
             if (C('URL_PARAMS_BIND_TYPE')) {
-                $vars = Request::instance()->route();
+                $vars = \request()->route();
             } else {
-                $vars = Request::instance()->param();
+                $vars = \request()->param();
             }
         }
         $args = [];
@@ -381,14 +355,14 @@ class App
                 $class = $param->getClass();
                 if ($class) {
                     $className = $class->getName();
-                    $bind = Request::instance()->$name;
+                    $bind = \request()->$name;
                     if ($bind instanceof $className) {
                         $args[] = $bind;
                     } else {
                         if (method_exists($className, 'invoke')) {
                             $method = new \ReflectionMethod($className, 'invoke');
                             if ($method->isPublic() && $method->isStatic()) {
-                                $args[] = $className::invoke(Request::instance());
+                                $args[] = $className::invoke(\request());
                                 continue;
                             }
                         }
@@ -468,22 +442,26 @@ class App
             static::tryToGracefulExit();
         }
 
+        // 应用初始化标签
+        Hook::listen('app_init');
+
+        // 赋值
+        static::$_request = $request;
+        static::$_connection = $connection;
+        $path = $request->path();
+        $key = $request->method() . $path;
+
+        // 设置参数过滤规则
+        $request->filter(C('DEFAULT_FILTER'));
+
+        // 获取配置
+        $config = C();
+
+        // 返回header参数
+        $header = [];
+
         try {
-            // 应用初始化标签
-            Hook::listen('app_init');
 
-            static::$_request = $request;
-            static::$_connection = $connection;
-            $path = $request->path();
-            $key = $request->method() . $path;
-            $config = C();
-
-            $header = [];
-
-            // 设置参数过滤规则
-            $request->filter(C('DEFAULT_FILTER'));
-
-            $request::instance($request);
 
             // 应用开始标签
             Hook::listen('app_begin');
@@ -498,9 +476,12 @@ class App
             } else {
                 $header = $checkCorsResult;
 
-                if (isset(static::$_callbacks[$key])) {
+                if (isset(static::$_callbacks[$key]) && !empty(static::$_callbacks[$key])) {
                     // 直接读取缓存对象
                     list($callback, $request->app, $request->controller, $request->action) = static::$_callbacks[$key];
+
+                    // 验证请求Token，排除登陆方法
+                    Hook::listen("request", $request);
 
                     // 执行路由方法
                     $data = $callback($request);
@@ -538,9 +519,6 @@ class App
             $response = Response::create()->header($header);
         }
 
-        // 记录应用初始化时间
-        G('initTime');
-
         // 应用结束标签
         Hook::listen('app_end');
 
@@ -549,36 +527,15 @@ class App
         return null;
     }
 
-    protected static function exceptionResponse(\Throwable $e, $request)
-    {
-        try {
-            $app = $request->app ?: '';
-            $exception_config = Config::get('exception');
-            $default_exception = $exception_config[''] ?? ExceptionHandler::class;
-            $exception_handler_class = $exception_config[$app] ?? $default_exception;
-
-            /** @var ExceptionHandlerInterface $exception_handler */
-            $exception_handler = static::$_container->make($exception_handler_class, [
-                'logger' => static::$_logger,
-                'debug' => Config::get('app.debug')
-            ]);
-            $exception_handler->report($e);
-            $response = $exception_handler->render($request, $e);
-            return $response;
-        } catch (\Throwable $e) {
-            return Config::get('app.debug') ? (string)$e : $e->getMessage();
-        }
-    }
-
     /**
      * @param $app
      * @param $call
      * @param null $args
-     * @param bool $with_global_middleware
+     * @param bool $withGlobalMiddleware
      * @param RouteObject $route
      * @return \Closure|mixed
      */
-    protected static function getCallback($app, $call, $args = null, $with_global_middleware = true, $route = null)
+    protected static function getCallback($app, $call, $args = null, $withGlobalMiddleware = true, $route = null)
     {
         $args = $args === null ? null : \array_values($args);
         if ($args === null) {
@@ -624,11 +581,13 @@ class App
     }
 
     /**
+     * @param $connection
+     * @param $path
      * @param $key
      * @param Request $request
      * @param $dispatch
      * @param $config
-     * @return mixed
+     * @return bool
      * @throws \ReflectionException
      */
     protected static function exec($key, Request $request, $dispatch, $config)
@@ -664,51 +623,6 @@ class App
         return $callback($request);
     }
 
-
-    /**
-     * @param $connection
-     * @param $path
-     * @param $key
-     * @param $request
-     * @return bool
-     */
-    protected static function findFile($connection, $path, $key, $request)
-    {
-        $public_dir = static::$_publicPath;
-        $file = \realpath("$public_dir/$path");
-        if (false === $file || false === \is_file($file)) {
-            return false;
-        }
-
-        // Security check
-        if (strpos($file, $public_dir) !== 0) {
-            static::send($connection, new Response(400), $request);
-            return true;
-        }
-        if (\pathinfo($file, PATHINFO_EXTENSION) === 'php') {
-            if (!static::$_supportPHPFiles) {
-                return false;
-            }
-            static::$_callbacks[$key] = [function ($request) use ($file) {
-                return static::execPhpFile($file);
-            }, '', '', ''];
-            list($callback, $request->app, $request->controller, $request->action) = static::$_callbacks[$key];
-            static::send($connection, static::execPhpFile($file), $request);
-            return true;
-        }
-
-        if (!static::$_supportStaticFiles) {
-            return false;
-        }
-
-        static::$_callbacks[$key] = [static::getCallback('__static__', function ($request) use ($file) {
-            return (new Response())->file($file);
-        }, null, false), '', '', ''];
-        list($callback, $request->app, $request->controller, $request->action) = static::$_callbacks[$key];
-        static::send($connection, $callback($request), $request);
-        return true;
-    }
-
     /**
      * @param TcpConnection $connection
      * @param $response
@@ -724,85 +638,6 @@ class App
             return;
         }
         $connection->close($response);
-    }
-
-    /**
-     * @param TcpConnection $connection
-     * @param $request
-     */
-    protected static function send404(TcpConnection $connection, $request)
-    {
-        static::send($connection, new Response(404, [], file_get_contents(static::$_publicPath . '/404.html')), $request);
-    }
-
-    /**
-     * @param $path
-     * @param $dispatch
-     * @param $config
-     * @return array|bool
-     * @throws \ReflectionException
-     */
-    protected static function parseControllerAction($path, $dispatch, $config)
-    {
-        if ($path === '/' || $path === '') {
-            $controlleClass = 'api\controller\IndexController';
-            $action = 'index';
-            if (\class_exists($controlleClass, false) && \is_callable([static::$_container->get($controlleClass), $action])) {
-                return [
-                    'app' => '',
-                    'controller' => \api\controller\IndexController::class,
-                    'action' => static::getRealMethod($controlleClass, $action)
-                ];
-            }
-            return false;
-        }
-
-
-        list($module, $controller, $action) = self::analysisModule($dispatch, $config);
-
-        $controlleClass = "{$module}\\controller\\{$controller}Controller";
-
-        if (\class_exists($controlleClass, false) && \is_callable([static::$_container->get($controlleClass), $action])) {
-            return [
-                'app' => '',
-                'controller' => \get_class(static::$_container->get($controlleClass)),
-                'action' => static::getRealMethod($controlleClass, $action)
-            ];
-        }
-
-        return false;
-    }
-
-    /**
-     * @param $controller_calss
-     * @return string
-     */
-    protected static function getAppByController($controller_calss)
-    {
-        if ($controller_calss[0] === '\\') {
-            $controller_calss = \substr($controller_calss, 1);
-        }
-        $tmp = \explode('\\', $controller_calss, 3);
-        if (!isset($tmp[1])) {
-            return '';
-        }
-        return $tmp[1] === 'controller' ? '' : $tmp[1];
-    }
-
-    /**
-     * @param $file
-     * @return string
-     */
-    public static function execPhpFile($file)
-    {
-        \ob_start();
-        // Try to include php file.
-        try {
-            include $file;
-        } catch (\Exception $e) {
-            echo $e;
-        }
-        return \ob_get_clean();
     }
 
     /**
@@ -839,23 +674,6 @@ class App
     public static function clearCache()
     {
         static::$_callbacks = [];
-    }
-
-    /**
-     * @param $class
-     * @param $method
-     * @return string
-     */
-    protected static function getRealMethod($class, $method)
-    {
-        $method = \strtolower($method);
-        $methods = \get_class_methods($class);
-        foreach ($methods as $candidate) {
-            if (\strtolower($candidate) === $method) {
-                return $candidate;
-            }
-        }
-        return $method;
     }
 
     /**

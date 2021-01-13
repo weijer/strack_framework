@@ -506,13 +506,13 @@ class Loader
     protected static function getModuleAndClass($name, $layer, $appendSuffix)
     {
         if (false !== strpos($name, '\\')) {
-            $module = Request::instance()->module();
+            $module = \request()->module();
             $class = $name;
         } else {
             if (strpos($name, '/')) {
                 list($module, $name) = explode('/', $name, 2);
             } else {
-                $module = Request::instance()->module();
+                $module = \request()->module();
             }
 
             $class = self::parseClass($module, $layer, $name, $appendSuffix);
@@ -596,7 +596,7 @@ class Loader
     {
         $info = pathinfo($url);
         $action = $info['basename'];
-        $module = '.' != $info['dirname'] ? $info['dirname'] : Request::instance()->controller();
+        $module = '.' != $info['dirname'] ? $info['dirname'] : \request()->controller();
         $class = self::controller($module, $layer, $appendSuffix);
         if ($class) {
             if (is_scalar($vars)) {

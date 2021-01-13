@@ -13,10 +13,6 @@ namespace think;
 
 class Request extends \Workerman\Protocols\Http\Request
 {
-    /**
-     * @var object 对象实例
-     */
-    protected static $instance;
 
     protected $method;
     /**
@@ -92,28 +88,25 @@ class Request extends \Workerman\Protocols\Http\Request
     protected static $hook = [];
 
     // 请求批次号
-    public static $batchNumber = '';
+    public $batchNumber = '';
 
-    // 模块数据
-    public static $moduleDictData = [];
-
-    // 复杂过滤条件涉及到的关联模块
-    public static $complexFilterRelatedModule = [];
+    // 当前模块的 code
+    public $moduleCode = '';
 
     // 当前请求绑定的project_id
-    public static $projectId = 0;
+    public $projectId = 0;
 
     // 当前请求绑定的tenant_id
-    public static $tenantId = 0;
+    public $tenantId = 0;
 
     // 当前请求绑定的user_uuid
-    public static $userUUID = "";
+    public $userUUID = "";
 
     // 当前请求绑定的user_id
-    public static $userId = 0;
+    public $userId = 0;
 
     // 当前请求绑定的x-userinfo
-    public static $xuserinfo = "";
+    public $xuserinfo = "";
 
 
     /**
@@ -131,9 +124,6 @@ class Request extends \Workerman\Protocols\Http\Request
         if (is_null($this->filter)) {
             $this->filter = C('DEFAULT_FILTER');
         }
-
-        // 设置操作批次号
-        self::$batchNumber = C('BELONG_SYSTEM') . '_' . string_random(8) . '-' . create_uuid();
     }
 
     /**
@@ -168,25 +158,97 @@ class Request extends \Workerman\Protocols\Http\Request
         }
     }
 
-
     /**
-     * 初始化
-     * @return \think\Request
-     * @throws \Exception
+     * 设置操作批次号
+     * @param string $batchNumber
+     * @return string
      */
-    public static function instance($request = null)
+    public function getBatchNumber($batchNumber = '')
     {
-        if (!empty($request)) {
-            self::$instance = $request;
+        if (!empty($batchNumber)) {
+            $this->batchNumber = $batchNumber;
         }
-
-        if (!empty(self::$instance)) {
-            return self::$instance;
-        } else {
-            throw_strack_exception("The request object does not exist.", -404);
-        }
+        return $this->batchNumber;
     }
 
+    /**
+     * 获取当前操作模块Code
+     * @param string $moduleCode
+     * @return string
+     */
+    public function getModuleCode($moduleCode = '')
+    {
+        if (!empty($moduleCode)) {
+            $this->moduleCode = $moduleCode;
+        }
+        return $this->moduleCode;
+    }
+
+    /**
+     * 获取当前操作的项目ID
+     * @param int $projectId
+     * @return int
+     */
+    public function getProjectId($projectId = 0)
+    {
+        if (!empty($projectId)) {
+            $this->projectId = $projectId;
+        }
+        return $this->projectId;
+    }
+
+    /**
+     * 获取当前操作的租户ID
+     * @param int $tenantId
+     * @return int
+     */
+    public function getTenantId($tenantId = 0)
+    {
+        if (!empty($tenantId)) {
+            $this->tenantId = $tenantId;
+        }
+        return $this->tenantId;
+    }
+
+    /**
+     * 获取当前系统操作的用户UUID
+     * @param string $userUUID
+     * @return int|string
+     */
+    public function getUserUUID($userUUID = '')
+    {
+        if (!empty($userUUID)) {
+            $this->userUUID = $userUUID;
+        }
+        return $this->userUUID;
+    }
+
+
+    /**
+     * 获取当前系统操作的用户ID
+     * @param int $userId
+     * @return int
+     */
+    public function getUserId($userId = 0)
+    {
+        if (!empty($userId)) {
+            $this->userId = $userId;
+        }
+        return $this->userId;
+    }
+
+    /**
+     * 获取当前系统操作的用户UUID
+     * @param string $xUserInfo
+     * @return string
+     */
+    public function getXUserInfo($xUserInfo = '')
+    {
+        if (!empty($xUserInfo)) {
+            $this->xuserinfo = $xUserInfo;
+        }
+        return $this->xuserinfo;
+    }
 
     /**
      * 设置或获取当前包含协议的域名
