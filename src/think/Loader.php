@@ -505,14 +505,20 @@ class Loader
      */
     protected static function getModuleAndClass($name, $layer, $appendSuffix)
     {
+        $request = \request();
+        $requestModule = null;
+        if (isset($request)) {
+            $requestModule = \request()->module();
+        }
+
         if (false !== strpos($name, '\\')) {
-            $module = \request()->module();
+            $module = !is_null($requestModule) ? $requestModule : C('DEFAULT_MODULE');
             $class = $name;
         } else {
             if (strpos($name, '/')) {
                 list($module, $name) = explode('/', $name, 2);
             } else {
-                $module = \request()->module();
+                $module = !is_null($requestModule) ? $requestModule : C('DEFAULT_MODULE');
             }
 
             $class = self::parseClass($module, $layer, $name, $appendSuffix);

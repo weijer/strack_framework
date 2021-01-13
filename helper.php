@@ -866,32 +866,6 @@ if (!function_exists('is_ssl')) {
     }
 }
 
-if (!function_exists('redirect')) {
-    /**
-     * URL重定向
-     * @param string $url 重定向的URL地址
-     * @param integer $time 重定向的等待时间（秒）
-     * @param string $msg 重定向前的提示信息
-     * @return void
-     */
-    function redirect($url, $time = 0, $msg = '', $params = [], $code = 302)
-    {
-        $url = str_replace(array("\n", "\r"), '', $url);
-
-        if (is_integer($params)) {
-            $code   = $params;
-            $params = [];
-        }
-
-        if ($time >0 ) {
-            header("refresh:{$time};url={$url}");
-        }
-
-        return  Response::create($url, 'redirect', $code)
-            ->header("refresh", $time)
-            ->params($params);
-    }
-}
 
 if (!function_exists('S')) {
     /**
@@ -1057,8 +1031,8 @@ if (!function_exists('data_to_xml')) {
 if (!function_exists('load_ext_file')) {
     /**
      * 加载动态扩展文件
-     * @var string $path 文件路径
      * @throws \think\Exception
+     * @var string $path 文件路径
      */
     function load_ext_file($path)
     {
@@ -1333,13 +1307,29 @@ if (!function_exists('get_module_model_name')) {
     }
 }
 
+
+if (!function_exists('get_module_table_name')) {
+    /**
+     * @param $moduleData
+     * @return string
+     */
+    function get_module_table_name($moduleData)
+    {
+        if ($moduleData['type'] === 'entity') {
+            return 'entity';
+        } else {
+            return $moduleData['code'];
+        }
+    }
+}
+
 if (!function_exists('view')) {
     /**
      * 渲染模板输出
-     * @param string    $template 模板文件
-     * @param array     $vars 模板变量
-     * @param array     $replace 模板替换
-     * @param integer   $code 状态码
+     * @param string $template 模板文件
+     * @param array $vars 模板变量
+     * @param array $replace 模板替换
+     * @param integer $code 状态码
      * @return \think\response\View
      */
     function view($template = '', $vars = [], $replace = [], $code = 200)

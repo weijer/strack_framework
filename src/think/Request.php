@@ -38,7 +38,7 @@ class Request extends \Workerman\Protocols\Http\Request
     /**
      * @var string
      */
-    protected $module;
+    protected $module = null;
 
     /**
      * @var string
@@ -156,6 +156,40 @@ class Request extends \Workerman\Protocols\Http\Request
         } else {
             self::$hook[$method] = $callback;
         }
+    }
+
+    /**
+     * 获取用户信息缓存
+     * @param string $unionId
+     * @param array $XUserInfoBase
+     * @return bool
+     */
+    public function getUserInfoCache($unionId = '', $XUserInfoBase = [])
+    {
+        if (!empty($unionId) && !empty($XUserInfoBase)) {
+            $cacheKey = 'user_info_cache_' . C('belong_system') . '_' . $unionId;
+            $userCache = Cache::get($cacheKey);
+            $keys = ['phone', 'email', 'name', 'union_id', 'avatar'];
+            if (!empty($userCache)) {
+                foreach ($keys as $key) {
+                    if (!empty($XUserInfoBase[$key]) && $XUserInfoBase[$key] === $userCache[$key]) {
+                        return $userCache;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 设置用户信息缓存
+     * @param $unionId
+     * @param $XUserInfoBase
+     */
+    public function setUserInfoCache($unionId, $userData)
+    {
+        $cacheKey = 'user_info_cache_' . C('belong_system') . '_' . $unionId;
+        Cache::set($cacheKey, $userData);
     }
 
     /**
@@ -1019,9 +1053,8 @@ class Request extends \Workerman\Protocols\Http\Request
 
     /**
      * 设置或者获取当前的模块名
-     * @access public
-     * @param string $module 模块名
-     * @return string|class
+     * @param null $module
+     * @return $this|string
      */
     public function module($module = null)
     {

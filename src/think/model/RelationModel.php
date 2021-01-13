@@ -10,14 +10,9 @@
 // +----------------------------------------------------------------------
 namespace think\model;
 
-use common\model\EntityModel;
-use common\model\FieldModel;
-use common\model\ModuleModel;
-use common\model\ModuleRelationModel;
-use common\model\StepCategoryModel;
 use think\Model;
 use think\Hook;
-use think\Request;
+use think\module\Module;
 
 /**
  * ThinkPHP关联模型扩展
@@ -90,10 +85,26 @@ class RelationModel extends Model
     // 当前模块code
     protected $currentModuleCode = '';
 
+    // 查询model对象
+    protected $moduleModel = [];
+
     public function __construct($name = '', $tablePrefix = '', $connection = '')
     {
         parent::__construct($name, $tablePrefix, $connection);
         $this->currentModuleCode = to_under_score($this->name);
+    }
+
+    /**
+     * 获取或者实例化模型对象
+     * @param $table
+     * @return  \think\Model object
+     */
+    public function getModelObj($table)
+    {
+        if (!isset($this->moduleModel[$table])) {
+            $this->moduleModel[$table] = new Model($table);
+        }
+        return $this->moduleModel[$table];
     }
 
     /**
@@ -732,7 +743,7 @@ class RelationModel extends Model
      */
     public function getComplexAttr($field, $inputValue, $moduleCode)
     {
-        $class = get_module_model_name(Request::$moduleDictData['module_index_by_code'][$moduleCode]);
+        $class = get_module_model_name(Module::$moduleDictData['module_index_by_code'][$moduleCode]);
 
         //获取一个单例model 重置model
         $classObject = model($class);
@@ -860,9 +871,9 @@ class RelationModel extends Model
      */
     private function handleQueryModuleCustomFields(&$fileds, $moduleCode)
     {
-        if (!empty($fileds) && !empty(Request::$moduleDictData['field_index_by_code'])) {
+        if (!empty($fileds) && !empty(Module::$moduleDictData['field_index_by_code'])) {
             // 处理查询的自定义字段
-            $moduleFields = Request::$moduleDictData['field_index_by_code'][$moduleCode];
+            $moduleFields = Module::$moduleDictData['field_index_by_code'][$moduleCode];
             $newFileds = [];
 
             foreach ($fileds as $field) {
@@ -906,8 +917,8 @@ class RelationModel extends Model
             $this->unfoldEntityRelationConfig($relationUnfold, $maxDepthRelationConfig);
 
             // 查询关联数据
-            $entityModel = new EntityModel();
-            $middleEntityData = $entityModel->field('id,entity_id')->where(['id' => ['IN', join(',', $this->queryModulePrimaryKeyIds)]])->select();
+            $middleEntityData = $this->getModelObj('entity')->field('id,entity_id')->where(['id' => ['IN', join(',', $this->queryModulePrimaryKeyIds)]])->select();
+
             $middleRelationIds = array_column($middleEntityData, 'entity_id');
 
             // 需要回插的entity数据
@@ -935,7 +946,7 @@ class RelationModel extends Model
 
                         $this->handleQueryModuleCustomFields($fileds, $relationUnfold[$i]['belong_module']);
 
-                        $entityData = $entityModel->field(join(',', $fileds))->where([
+                        $entityData = $this->getModelObj('entity')->field(join(',', $fileds))->where([
                             'id' => ['IN', join(',', $middleRelationIds)],
                             'module_id' => $relationUnfold[$i]['src_module_id'],
                         ])->select();
@@ -1045,13 +1056,13 @@ class RelationModel extends Model
                     }
                 }
 
-                $modelObjectClass = get_module_model_name(Request::$moduleDictData['module_index_by_code'][$modulConfig['module_code']]);
+                $modelObjectClass = get_module_model_name(Module::$moduleDictData['module_index_by_code'][$modulConfig['module_code']]);
                 $newModelObject = model($modelObjectClass);
 
 
-                if(array_key_exists($moduleCode, $this->queryModuleRelationFields)){
+                if (array_key_exists($moduleCode, $this->queryModuleRelationFields)) {
                     $queryFields = $this->queryModuleRelationFields[$moduleCode];
-                }else{
+                } else {
                     $queryFields = [];
                 }
 
@@ -1060,7 +1071,7 @@ class RelationModel extends Model
                 }
 
                 foreach ($queryFields as &$queryField) {
-                    $queryField = $this->handleQueryCustomFields($queryField) ." AS $queryField";
+                    $queryField = $this->handleQueryCustomFields($queryField) . " AS $queryField";
                 }
 
                 $horizontalData = $newModelObject->field(join(',', $queryFields))->where(['id' => ['IN', join(',', $relationIds)]])->select();
@@ -1386,8 +1397,8 @@ class RelationModel extends Model
      */
     private function recurrenceEntityChildHierarchy(&$result, $moduleCode, $moduleDictByDstModuleId, $moduleDictBySrcModuleId, $isChild = false)
     {
-        $moduleData = Request::$moduleDictData['module_index_by_code'][$moduleCode];
-        $masterModuleData = Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode];
+        $moduleData = Module::$moduleDictData['module_index_by_code'][$moduleCode];
+        $masterModuleData = Module::$moduleDictData['module_index_by_code'][$this->currentModuleCode];
 
         if ($moduleData['type'] === 'entity') {
 
@@ -1403,7 +1414,7 @@ class RelationModel extends Model
             ];
 
             foreach ($moduleDictBySrcModuleId[$moduleData['id']] as $moduleDictSrcItem) {
-                $dstModuleData = Request::$moduleDictData['module_index_by_id'][$moduleDictSrcItem['dst_module_id']];
+                $dstModuleData = Module::$moduleDictData['module_index_by_id'][$moduleDictSrcItem['dst_module_id']];
                 if ($dstModuleData['type'] === 'entity') {
                     $this->recurrenceEntityChildHierarchy($result['child'], $dstModuleData['code'], $moduleDictByDstModuleId, $moduleDictBySrcModuleId, true);
                     continue;
@@ -1422,8 +1433,8 @@ class RelationModel extends Model
      */
     private function recurrenceEntityParentHierarchy(&$result, $moduleCode, $moduleDictByDstModuleId, $moduleDictBySrcModuleId, $isParent = false)
     {
-        $moduleData = Request::$moduleDictData['module_index_by_code'][$moduleCode];
-        $masterModuleData = Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode];
+        $moduleData = Module::$moduleDictData['module_index_by_code'][$moduleCode];
+        $masterModuleData = Module::$moduleDictData['module_index_by_code'][$this->currentModuleCode];
         if ($moduleData['type'] === 'entity') {
 
             if ($isParent) {
@@ -1443,7 +1454,7 @@ class RelationModel extends Model
 
             if (array_key_exists($moduleData['id'], $moduleDictByDstModuleId)) {
                 foreach ($moduleDictByDstModuleId[$moduleData['id']] as $moduleDictSrcItem) {
-                    $srcModuleData = Request::$moduleDictData['module_index_by_id'][$moduleDictSrcItem['src_module_id']];
+                    $srcModuleData = Module::$moduleDictData['module_index_by_id'][$moduleDictSrcItem['src_module_id']];
                     if ($srcModuleData['type'] === 'entity') {
                         $this->recurrenceEntityParentHierarchy($result, $srcModuleData['code'], $moduleDictByDstModuleId, $moduleDictBySrcModuleId, true);
                         continue;
@@ -1465,8 +1476,8 @@ class RelationModel extends Model
         $resultDict = [];
 
         foreach ($complexFilterRelatedModule as $module => $moduleCode) {
-            if (array_key_exists($module, Request::$moduleDictData['module_index_by_code'])) {
-                $moduleData = Request::$moduleDictData['module_index_by_code'][$moduleCode];
+            if (array_key_exists($module, Module::$moduleDictData['module_index_by_code'])) {
+                $moduleData = Module::$moduleDictData['module_index_by_code'][$moduleCode];
                 if ($moduleData['type'] === 'entity') {
                     // 找到所有儿子
                     $childResult = [];
@@ -1524,7 +1535,7 @@ class RelationModel extends Model
     private function recurrenceFilterModuleRelation(&$filterModuleLinkRelation, $module, $moduleCode, $horizontalModuleList, $moduleDictBySrcModuleId, $moduleDictByDstModuleId, $entityParentChildHierarchyData)
     {
         // 对于实体和任务特殊关系每层实体下面都可以挂任务
-        $moduleData = Request::$moduleDictData['module_index_by_code'][$moduleCode];
+        $moduleData = Module::$moduleDictData['module_index_by_code'][$moduleCode];
 
         if (in_array($moduleData['code'], $horizontalModuleList)) {
             // 判断是否是水平自定义关联模块
@@ -1534,7 +1545,7 @@ class RelationModel extends Model
             if ($moduleData['type'] === 'entity') {
                 // 实体类型 如果 对方是任务模块需要独立处理，因为每个实体下面都有任务
                 foreach ($moduleDictBySrcModuleId[$moduleData['id']] as $relationModuleItem) {
-                    if (Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id'] === $relationModuleItem['dst_module_id']) {
+                    if (Module::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id'] === $relationModuleItem['dst_module_id']) {
                         // 仅仅处理任务模型
                         $filterModuleLinkEmtityTemp = [];
                         $this->recurrenceFilterModuleEntityRelation($filterModuleLinkEmtityTemp, $entityParentChildHierarchyData[$moduleData['code']]);
@@ -1551,7 +1562,7 @@ class RelationModel extends Model
                     // 不是当前自己模块
                     foreach ($moduleDictByDstModuleId[$moduleData['id']] as $relationModuleItem) {
                         // dst_module_id src_module_id 都匹配就保存到关联关系中去
-                        if ($relationModuleItem['dst_module_id'] === $moduleData['id'] && $relationModuleItem['src_module_id'] === Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id']) {
+                        if ($relationModuleItem['dst_module_id'] === $moduleData['id'] && $relationModuleItem['src_module_id'] === Module::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id']) {
                             $relationModuleItem['filter_type'] = 'direct';
                             $filterModuleLinkRelation[$module] = $relationModuleItem;
                         }
@@ -1569,14 +1580,13 @@ class RelationModel extends Model
     {
         $queryModuleIds = [];
         foreach ($queryModuleList as $moduleCode) {
-            $moduleId = Request::$moduleDictData['module_index_by_code'][$moduleCode]['id'];
+            $moduleId = Module::$moduleDictData['module_index_by_code'][$moduleCode]['id'];
             if (!in_array($moduleId, $queryModuleIds)) {
                 $queryModuleIds[] = $moduleId;
             }
         }
 
-        $fieldModel = new FieldModel();
-        $customFieldData = $fieldModel->field('id,table,module_id,config')
+        $customFieldData = $this->getModelObj('field')->field('id,table,module_id,config')
             ->where([
                 'type' => 'custom',
                 'is_horizontal' => 0,
@@ -1587,7 +1597,7 @@ class RelationModel extends Model
         if (!empty($customFieldData)) {
             foreach ($customFieldData as $customFieldItem) {
                 $customFieldItemConfig = json_decode($customFieldItem['config'], true);
-                $customFieldItemConfig['query_module_code'] = Request::$moduleDictData['module_index_by_id'][$customFieldItem['module_id']]['code'];
+                $customFieldItemConfig['query_module_code'] = Module::$moduleDictData['module_index_by_id'][$customFieldItem['module_id']]['code'];
                 $this->queryComplexCustomFieldMapping[$customFieldItemConfig['field']] = $customFieldItemConfig;
             }
         }
@@ -1601,18 +1611,18 @@ class RelationModel extends Model
     private function getRelationModuleCustomFields($modules)
     {
         $relationModule = [];
-        $moduleModel = new ModuleModel();
-        $entityModuleList = $moduleModel->field('code')->where(['type' => 'entity'])->select();
+        $entityModuleList = $this->getModelObj('field')->field('code')->where(['type' => 'entity'])->select();
+
         foreach ($modules as $moduleKey => $config) {
             if ($config['type'] !== 'horizontal') {
                 if ($moduleKey === 'entity') {
                     $entityModuleCustomFields = [];
                     foreach ($entityModuleList as $entityModuleCode) {
-                        $entityModuleCustomFields = array_merge($entityModuleCustomFields, Request::$moduleDictData['field_index_by_code'][$entityModuleCode['code']]['custom']);
+                        $entityModuleCustomFields = array_merge($entityModuleCustomFields, Module::$moduleDictData['field_index_by_code'][$entityModuleCode['code']]['custom']);
                     }
                     $relationModule[$moduleKey] = $entityModuleCustomFields;
                 } else {
-                    $relationModule[$moduleKey] = Request::$moduleDictData['field_index_by_code'][$moduleKey]['custom'];
+                    $relationModule[$moduleKey] = Module::$moduleDictData['field_index_by_code'][$moduleKey]['custom'];
                 }
             }
         }
@@ -1634,19 +1644,17 @@ class RelationModel extends Model
         }
 
         // 获取所有关联模块
-        $moduleRelationModel = new ModuleRelationModel();
-        $moduleRelationData = $moduleRelationModel->field('id,type as relation_type,src_module_id,dst_module_id,link_id')->select();
+        $moduleRelationData = $this->getModelObj('module_relation')->field('id,type as relation_type,src_module_id,dst_module_id,link_id')->select();
+
 
         // 当前模块的水平关联自定义字段
-        $fieldModel = new FieldModel();
-        $horizontalFieldData = $fieldModel->field('id,table,config')
+        $horizontalFieldData = $this->getModelObj('field')->field('id,table,config')
             ->where([
                 'type' => 'custom',
                 'is_horizontal' => 1,
-                'module_id' => Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id']
+                'module_id' => Module::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id']
             ])
             ->select();
-
 
         // 获取任务与当前模块的关系
         $moduleDictByDstModuleId = [];
@@ -1659,7 +1667,7 @@ class RelationModel extends Model
                 $horizontalFieldItemConfig = json_decode($horizontalFieldItem['config'], true);
 
                 // 判断当前查询关联模块是存在
-                $dstModuleData = Request::$moduleDictData['module_index_by_id'][$horizontalFieldItemConfig['data_source']['dst_module_id']];
+                $dstModuleData = Module::$moduleDictData['module_index_by_id'][$horizontalFieldItemConfig['data_source']['dst_module_id']];
 
                 $moduleDictByDstModuleId[$horizontalFieldItemConfig['data_source']['dst_module_id']][] = [
                     'type' => 'horizontal', // 自定义关系
@@ -1681,7 +1689,7 @@ class RelationModel extends Model
 
         foreach ($moduleRelationData as $moduleRelationItem) {
             $moduleRelationItem['type'] = 'fixed';
-            $moduleRelationData = Request::$moduleDictData['module_index_by_id'][$moduleRelationItem['dst_module_id']];
+            $moduleRelationData = Module::$moduleDictData['module_index_by_id'][$moduleRelationItem['dst_module_id']];
             $moduleRelationItem['module_code'] = $moduleRelationData['code'];
             $moduleDictByDstModuleId[$moduleRelationItem['dst_module_id']][] = $moduleRelationItem;
             $moduleDictBySrcModuleId[$moduleRelationItem['src_module_id']][] = $moduleRelationItem;
@@ -1695,7 +1703,7 @@ class RelationModel extends Model
             // 自己当前模块
             $queryModuleList[$this->currentModuleCode] = $this->currentModuleCode;
 
-            foreach ($moduleDictBySrcModuleId[Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id']] as $fixedModuleItem) {
+            foreach ($moduleDictBySrcModuleId[Module::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id']] as $fixedModuleItem) {
                 $queryModuleList[$fixedModuleItem['module_code']] = $fixedModuleItem['module_code'];
             }
         } else {
@@ -1806,8 +1814,7 @@ class RelationModel extends Model
      */
     private function parserFilterItemEntityTaskRelated(&$filterData, $masterModuleCode, $itemModule, $filter)
     {
-        $class = '\\common\\model\\EntityModel';
-        $selectData = (new $class())->where($this->formatFilterCondition($filter))->select();
+        $selectData = $this->getModelObj('entity')->where($this->formatFilterCondition($filter))->select();
         if (!empty($selectData)) {
             $ids = array_column($selectData, 'id');
             $idsString = join(',', $ids);
@@ -1869,21 +1876,21 @@ class RelationModel extends Model
      */
     private function parserFilterCutsomHorizontalCondition(&$filterData, $field, $condition, $moduleCode = '', $mapModule, $isMaster = true)
     {
-        if($isMaster){
+        if ($isMaster) {
             // 主表关联
             if (is_array($condition)) {
                 list($itemCondition, $itemValue) = $condition;
-            }else{
+            } else {
                 $itemValue = $condition;
             }
 
-            if(is_array($itemValue)){
+            if (is_array($itemValue)) {
                 $itemValueStr = "";
-                foreach ($itemValue as $item){
-                    $itemValueStr .= "\"{$item}\"".",";
+                foreach ($itemValue as $item) {
+                    $itemValueStr .= "\"{$item}\"" . ",";
                 }
                 $itemValueStr = substr($itemValueStr, 0, -1);
-            }else{
+            } else {
                 $itemValueStr = "\"{$itemValue}\"";
             }
 
@@ -1892,7 +1899,7 @@ class RelationModel extends Model
             } else {
                 $filterData['_string'] = "JSON_CONTAINS('[{$itemValueStr}]' , json_extract(json, '$.{$field}' ))";
             }
-        }else{
+        } else {
 //        echo json_encode($field);
 //        echo json_encode($condition);
 //        $class = '\\common\\model\\' . string_initial_letter($mapModule) . 'Model';
@@ -1962,9 +1969,9 @@ class RelationModel extends Model
             case 'master':
                 // 主键查询只需要加上字段别名
                 foreach ($filter as $field => $condition) {
-                    if(array_key_exists($field, $this->queryComplexHorizontalCustomFieldMapping)){
+                    if (array_key_exists($field, $this->queryComplexHorizontalCustomFieldMapping)) {
                         $this->parserFilterCutsomHorizontalCondition($filterData, $field, $condition, $masterModuleCode, $this->queryComplexHorizontalCustomFieldMapping[$field]);
-                    }else{
+                    } else {
                         if (array_key_exists($field, $this->queryComplexCustomFieldMapping)) {
                             $this->parserFilterCutsomItemCondition($filterData, $field, $condition, $masterModuleCode);
                         } else {
@@ -1975,8 +1982,7 @@ class RelationModel extends Model
                 }
                 break;
             case 'direct':
-                $class = '\\common\\model\\' . string_initial_letter($itemModule['module_code']) . 'Model';
-                $selectData = (new $class())->where($this->formatFilterCondition($filter))->select();
+                $selectData = $this->getModelObj($itemModule['module_code'])->where($this->formatFilterCondition($filter))->select();
                 if (!empty($selectData)) {
                     $ids = array_column($selectData, 'id');
                     $idsString = join(',', $ids);
@@ -2003,12 +2009,12 @@ class RelationModel extends Model
                     $filterEntityTaskData = [];
                     $filterData['_complex'] = $this->parserFilterItemEntityTaskRelated($filterEntityTaskData, $masterModuleCode, $itemModule, $filter);
                 } else {
-                    $class = get_module_model_name([
+                    $tableName = get_module_table_name([
                         "type" => $itemModule['filter_type'],
                         "code" => $itemModule['module_code']
                     ]);
 
-                    $selectData = (new $class())->where($this->formatFilterCondition($filter))->select();
+                    $selectData = $this->getModelObj($tableName)->where($this->formatFilterCondition($filter))->select();
                     if (!empty($selectData)) {
                         $ids = array_column($selectData, 'id');
                         $idsString = join(',', $ids);
@@ -2044,7 +2050,7 @@ class RelationModel extends Model
                             "type" => "",
                             "module_code" => $this->currentModuleCode,
                             "relation_type" => "",
-                            "src_module_id" => Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id'],
+                            "src_module_id" => Module::$moduleDictData['module_index_by_code'][$this->currentModuleCode]['id'],
                             "dst_module_id" => 0,
                             "link_id" => "id",
                             "filter_type" => "master"
@@ -2279,7 +2285,7 @@ class RelationModel extends Model
             } else {
                 // 需要判断是不是水平关联字段
                 if (array_key_exists($moduleArray[1], $this->queryComplexHorizontalCustomFieldMapping)) {
-                    if($filterModuleLinkRelation[$moduleArray[1]]["relation_type"] === "has_many"){
+                    if ($filterModuleLinkRelation[$moduleArray[1]]["relation_type"] === "has_many") {
                         // 一对多水平自定义字段关联
                         $this->queryModuleHasManyRelation[$moduleArray[1]] = $filterModuleLinkRelation[$moduleArray[1]];
                         if ($filterModuleLinkRelation[$moduleArray[1]]['type'] === 'horizontal') {
@@ -2288,7 +2294,7 @@ class RelationModel extends Model
                                 $newFields[] = "JSON_UNQUOTE(JSON_EXTRACT({$this->currentModuleCode}.json, '$.{$filterModuleLinkRelation[$moduleArray[1]]['link_id']}')) AS {$moduleArray[1]}__link";
                             }
                         }
-                    }else{
+                    } else {
                         if (!array_key_exists($moduleArray[1], $this->queryModuleLfetJoinRelation)) {
 
                             // 默认增加id name code 字段
@@ -2352,7 +2358,7 @@ class RelationModel extends Model
     private function autoFillEntityModuleIdFilter($filter)
     {
         $newFilter = [];
-        $currentModuleData = Request::$moduleDictData['module_index_by_code'][$this->currentModuleCode];
+        $currentModuleData = Module::$moduleDictData['module_index_by_code'][$this->currentModuleCode];
         if ($this->isComplexFilter) {
             // 关联查询
             if (!empty($filter)) {
@@ -2514,8 +2520,8 @@ class RelationModel extends Model
                 }
 
                 $joinModuleSourceCode = $joinItem['module_code'];
-                if(!empty(Request::$moduleDictData['module_index_by_code'][$joinItem['module_code']])){
-                    if(Request::$moduleDictData['module_index_by_code'][$joinItem['module_code']]['type'] === 'entity'){
+                if (!empty(Module::$moduleDictData['module_index_by_code'][$joinItem['module_code']])) {
+                    if (Module::$moduleDictData['module_index_by_code'][$joinItem['module_code']]['type'] === 'entity') {
                         $joinModuleSourceCode = 'entity';
                     }
                 }
@@ -2734,15 +2740,15 @@ class RelationModel extends Model
             return $this->queryModuleFieldDict[$moduleCode];
         }
 
-        if(array_key_exists($moduleCode, $this->queryComplexHorizontalCustomFieldMapping)){
+        if (array_key_exists($moduleCode, $this->queryComplexHorizontalCustomFieldMapping)) {
             $moduleCode = $this->queryComplexHorizontalCustomFieldMapping[$moduleCode];
         }
 
-        if (!array_key_exists($moduleCode, Request::$moduleDictData['field_index_by_code'])) {
+        if (!array_key_exists($moduleCode, Module::$moduleDictData['field_index_by_code'])) {
             throw_strack_exception("{$moduleCode} module does not exist.", -400003);
         }
 
-        $currentModuleFields = Request::$moduleDictData['field_index_by_code'][$moduleCode];
+        $currentModuleFields = Module::$moduleDictData['field_index_by_code'][$moduleCode];
 
         $this->queryModuleFieldDict[$moduleCode] = array_merge($currentModuleFields['fixed'], $currentModuleFields['custom']);
 
