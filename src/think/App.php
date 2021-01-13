@@ -151,28 +151,6 @@ class App
             define('NOW_TIME', $_SERVER['REQUEST_TIME']);
         }
 
-        if (!IS_CLI) {
-            define('REQUEST_METHOD', $_SERVER['REQUEST_METHOD']);
-            define('IS_GET', REQUEST_METHOD == 'GET' ? true : false);
-            define('IS_POST', REQUEST_METHOD == 'POST' ? true : false);
-            define('IS_PUT', REQUEST_METHOD == 'PUT' ? true : false);
-            define('IS_DELETE', REQUEST_METHOD == 'DELETE' ? true : false);
-        }
-
-        if (C('REQUEST_VARS_FILTER')) {
-            // 全局安全过滤
-            array_walk_recursive($_GET, 'think_filter');
-            array_walk_recursive($_POST, 'think_filter');
-            array_walk_recursive($_REQUEST, 'think_filter');
-        }
-
-        if (!IS_CLI) {
-            define('IS_AJAX', ((isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') || !empty($_POST[C('VAR_AJAX_SUBMIT')]) || !empty($_GET[C('VAR_AJAX_SUBMIT')])) ? true : false);
-
-            // TMPL_EXCEPTION_FILE 改为绝对地址
-            C('TMPL_EXCEPTION_FILE', realpath(C('TMPL_EXCEPTION_FILE')));
-        }
-
         // 加载动态应用公共文件和配置
         load_ext_file(COMMON_PATH);
 

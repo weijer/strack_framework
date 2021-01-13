@@ -801,7 +801,7 @@ class Route
                                 $params[$pos] = $panDomain;
                             }
                         }
-                        $_GET = array_merge($_GET, $params);
+                        $_GET = array_merge($request->get(), $params);
                     } else {
                         $result = $rule;
                     }

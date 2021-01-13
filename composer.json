@@ -1,6 +1,6 @@
 {
     "name": "strack/framework",
-    "description": "strack底层框架",
+    "description": "teamones 底层框架, 基于workerman高性能",
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -21,8 +21,7 @@
         ],
         "psr-4": {
             "think\\": "src/think/",
-            "behavior\\": "src/behavior/",
-            "think\\helper\\": "src/helper/"
+            "behavior\\": "src/behavior/"
         }
     }
 }

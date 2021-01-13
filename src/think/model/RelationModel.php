@@ -39,23 +39,11 @@ class RelationModel extends Model
     // 字段数据源映射源数据字段
     public $_fieldFromDataDict = [];
 
-    // 远端一对多水平关联字段多个查询上一个查询方法
-    protected $prevRemoteQueryMethod = '';
-
-    // 远端一对多水平关联字段多个查询当前查询方法
-    protected $currentRemoteQueryMethod = '';
-
     // 字段类型或者格式转换
     protected $type = [];
 
     // 是否是空值查询
     protected $isNullOrEmptyFilter = false;
-
-    // 当前模块id
-    protected $currentModuleId = 0;
-
-    // 自定义字段配置
-    protected $customFieldConfig = [];
 
     // 查询模块模型关联
     protected $queryModuleRelation = [];
