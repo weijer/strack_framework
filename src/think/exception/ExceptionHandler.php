@@ -70,7 +70,7 @@ class ExceptionHandler implements ExceptionHandlerInterface
      * @param Throwable $exception
      * @return Response
      */
-    public function render(Request $request, Throwable $exception) : Response
+    public function render(Request $request, Throwable $exception): Response
     {
         if (\method_exists($exception, 'render')) {
             return $exception->render();
@@ -79,18 +79,18 @@ class ExceptionHandler implements ExceptionHandlerInterface
         if ($request->expectsJson()) {
             $json = ['code' => $code ? $code : 500, 'msg' => $exception->getMessage()];
             $this->_debug && $json['traces'] = (string)$exception;
-            return new Response(200, ['Content-Type' => 'application/json'],
-                json_encode($json, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            return new Response(json_encode($json, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), 200, ['Content-Type' => 'application/json']);
         }
         $error = $this->_debug ? nl2br((string)$exception) : 'Server internal error';
-        return new Response(500, [], $error);
+        return new Response($error, 500, []);
     }
 
     /**
      * @param Throwable $e
      * @return bool
      */
-    protected function shouldntReport(Throwable $e) {
+    protected function shouldntReport(Throwable $e)
+    {
         foreach ($this->dontReport as $type) {
             if ($e instanceof $type) {
                 return true;

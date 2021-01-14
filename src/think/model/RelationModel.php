@@ -12,6 +12,7 @@ namespace think\model;
 
 use think\Model;
 use think\Hook;
+use think\Db;
 use think\module\Module;
 
 /**
@@ -86,7 +87,7 @@ class RelationModel extends Model
     protected $currentModuleCode = '';
 
     // 查询model对象
-    protected $moduleModel = [];
+    protected $moduleModel = null;
 
     public function __construct($name = '', $tablePrefix = '', $connection = '')
     {
@@ -101,10 +102,10 @@ class RelationModel extends Model
      */
     public function getModelObj($table)
     {
-        if (!isset($this->moduleModel[$table])) {
-            $this->moduleModel[$table] = new Model($table);
+        if (!isset($this->moduleModel)) {
+            $this->moduleModel = new Model();
         }
-        return $this->moduleModel[$table];
+        return $this->moduleModel->table($table);
     }
 
     /**
@@ -1645,7 +1646,6 @@ class RelationModel extends Model
 
         // 获取所有关联模块
         $moduleRelationData = $this->getModelObj('module_relation')->field('id,type as relation_type,src_module_id,dst_module_id,link_id')->select();
-
 
         // 当前模块的水平关联自定义字段
         $horizontalFieldData = $this->getModelObj('field')->field('id,table,config')

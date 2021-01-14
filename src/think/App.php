@@ -10,6 +10,8 @@
 // +----------------------------------------------------------------------
 namespace think;
 
+use think\Exception\ExceptionHandlerInterface;
+use think\Exception\ExceptionHandler;
 use think\exception\ClassNotFoundException;
 use Workerman\Worker;
 use Workerman\Timer;
@@ -429,6 +431,9 @@ class App
         $path = $request->path();
         $key = $request->method() . $path;
 
+        // 请求开始HOOK
+        Hook::listen("request", $request);
+
         // 设置参数过滤规则
         $request->filter(C('DEFAULT_FILTER'));
 
@@ -439,7 +444,6 @@ class App
         $header = [];
 
         try {
-
 
             // 应用开始标签
             Hook::listen('app_begin');
@@ -457,9 +461,6 @@ class App
                 if (isset(static::$_callbacks[$key]) && !empty(static::$_callbacks[$key])) {
                     // 直接读取缓存对象
                     list($callback, $request->app, $request->controller, $request->action) = static::$_callbacks[$key];
-
-                    // 验证请求Token，排除登陆方法
-                    Hook::listen("request", $request);
 
                     // 执行路由方法
                     $data = $callback($request);
@@ -505,6 +506,22 @@ class App
         return null;
     }
 
+    protected static function exceptionResponse(\Throwable $e, $request)
+    {
+        try {
+            /** @var ExceptionHandlerInterface $exception_handler */
+            $exception_handler = static::$_container->make(ExceptionHandler::class, [
+                'logger' => static::$_logger,
+                'debug' => APP_DEBUG
+            ]);
+            $exception_handler->report($e);
+            $response = $exception_handler->render($request, $e);
+            return $response;
+        } catch (\Throwable $e) {
+            return APP_DEBUG ? (string)$e : $e->getMessage();
+        }
+    }
+
     /**
      * @param $app
      * @param $call
@@ -516,12 +533,36 @@ class App
     protected static function getCallback($app, $call, $args = null, $withGlobalMiddleware = true, $route = null)
     {
         $args = $args === null ? null : \array_values($args);
-        if ($args === null) {
-            $callback = $call;
+        $middleware = Middleware::getMiddleware($app, $withGlobalMiddleware);
+        if ($middleware) {
+            $callback = array_reduce($middleware, function ($carry, $pipe) {
+                return function ($request) use ($carry, $pipe) {
+                    return $pipe($request, $carry);
+                };
+            }, function ($request) use ($call, $args) {
+
+                try {
+                    if ($args === null) {
+                        $response = $call($request);
+                    } else {
+                        $response = $call($request, ...$args);
+                    }
+                } catch (\Throwable $e) {
+                    return static::exceptionResponse($e, $request);
+                }
+                if (\is_scalar($response) || null === $response) {
+                    $response = new Response($response, 200);
+                }
+                return $response;
+            });
         } else {
-            $callback = function ($request) use ($call, $args) {
-                return $call($request, ...$args);
-            };
+            if ($args === null) {
+                $callback = $call;
+            } else {
+                $callback = function ($request) use ($call, $args) {
+                    return $call($request, ...$args);
+                };
+            }
         }
         return $callback;
     }
@@ -574,9 +615,6 @@ class App
 
         // 设置当前请求的控制器、操作
         $request->controller(Loader::parseName($controller, 1))->action($action);
-
-        // 验证请求Token，排除登陆方法
-        Hook::listen("request", $request);
 
         try {
             $controllerObj = Loader::controller(

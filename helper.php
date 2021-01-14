@@ -866,6 +866,32 @@ if (!function_exists('is_ssl')) {
     }
 }
 
+if (!function_exists('redirect')) {
+    /**
+     * URL重定向
+     * @param string $url 重定向的URL地址
+     * @param integer $time 重定向的等待时间（秒）
+     * @param string $msg 重定向前的提示信息
+     * @return void
+     */
+    function redirect($url, $time = 0, $msg = '', $params = [], $code = 302)
+    {
+        $url = str_replace(array("\n", "\r"), '', $url);
+
+        if (is_integer($params)) {
+            $code = $params;
+            $params = [];
+        }
+
+        if ($time > 0) {
+            header("refresh:{$time};url={$url}");
+        }
+
+        return Response::create($url, 'redirect', $code)
+            ->header("refresh", $time)
+            ->params($params);
+    }
+}
 
 if (!function_exists('S')) {
     /**
