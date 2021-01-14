@@ -414,6 +414,7 @@ class Loader
     /**
      * 注册自动加载机制
      * @param string $autoload
+     * @throws Exception
      */
     public static function register($autoload = '')
     {
