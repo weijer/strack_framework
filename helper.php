@@ -65,6 +65,17 @@ if (!function_exists('C')) {
     }
 }
 
+if (!function_exists('config')) {
+    /**
+     * @param $key
+     * @param null $default
+     * @return mixed
+     */
+    function config($key = null, $default = null)
+    {
+        return C($key, null, $default);
+    }
+}
 
 if (!function_exists('load_config')) {
     /**
