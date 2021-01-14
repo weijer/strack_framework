@@ -1611,7 +1611,7 @@ class RelationModel extends Model
     private function getRelationModuleCustomFields($modules)
     {
         $relationModule = [];
-        $entityModuleList = $this->getModelObj('field')->field('code')->where(['type' => 'entity'])->select();
+        $entityModuleList = $this->getModelObj('module')->field('code')->where(['type' => 'entity'])->select();
 
         foreach ($modules as $moduleKey => $config) {
             if ($config['type'] !== 'horizontal') {
