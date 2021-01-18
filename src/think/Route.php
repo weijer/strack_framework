@@ -1504,6 +1504,12 @@ class Route
             }
         }
 
+        // request路由检测
+        if(!isset($option['request_behavior_check']) || $option['request_behavior_check'] === true){
+            // request hook
+            Hook::listen("request", $request);
+        }
+
         if ($route instanceof \Closure) {
             // 执行闭包
             $result = ['type' => 'function', 'function' => $route];

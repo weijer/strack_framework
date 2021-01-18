@@ -294,9 +294,6 @@ class App
         // 设置当前请求的控制器、操作
         $request->controller(Loader::parseName($controller, 1))->action($actionName);
 
-        // request hook
-        Hook::listen("request", $request);
-
         try {
             $instance = Loader::controller(
                 $controller,
