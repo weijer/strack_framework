@@ -2464,7 +2464,7 @@ class RelationModel extends Model
 
         // 存在租户的模块需要自动增加租户过滤条件
         if (in_array(strtolower($this->name), [
-            'calendar', 'entity', 'filter', 'media', 'note', 'onset', 'plan', 'project', 'project_user', 'task', 'timelog'
+            'calendar', 'entity', 'filter', 'media', 'note', 'onset', 'plan', 'project', 'project_user', 'task', 'timelog', 'temp_submit_version'
         ])) {
             $filter = !empty($options['filter']) ? $options['filter'] : [];
             $options['filter'] = $this->autoFillTenantIdFilter($filter);
